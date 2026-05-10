@@ -4,6 +4,7 @@ import { Header } from '@/components/Header';
 import { useUserData } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
 import { Star, Package } from 'lucide-react';
+import { FoodPreference } from '@/types';
 
 export type ShopCategory = 'food' | 'animals' | 'accessories' | 'nature';
 
@@ -244,7 +245,7 @@ type Category = ShopCategory;
 
 export function ShopPage() {
   const navigate = useNavigate();
-  const { userData, spendPoints, getItem } = useUserData();
+  const { userData, spendPoints, getItem, getFoodPreference } = useUserData();
   const [category, setCategory] = useState<Category>('food');
   const [successItem, setSuccessItem] = useState<ShopItem | null>(null);
   const [showOwned, setShowOwned] = useState<string | null>(null);
@@ -254,6 +255,22 @@ export function ShopPage() {
 
   // 从userData中获取已拥有物品
   const userItems = userData.userItems || {};
+
+  const getPreferenceBadge = (item: ShopItem): { text: string; className: string } | null => {
+    if (category !== 'food' || !userData.adoptedPet) return null;
+    
+    const preference = getFoodPreference(userData.adoptedPet, item.id);
+    switch (preference) {
+      case 'favorite':
+        return { text: '最爱', className: 'bg-red-500 text-white' };
+      case 'good':
+        return { text: '喜欢', className: 'bg-green-500 text-white' };
+      case 'bad':
+        return { text: '有害', className: 'bg-gray-600 text-white' };
+      default:
+        return null;
+    }
+  };
 
   const categories = [
     { key: 'food' as Category, label: '美味食物', emoji: '🍕', color: 'from-orange-400 to-red-400' },
@@ -417,6 +434,7 @@ export function ShopPage() {
           {SHOP_ITEMS[category].map((item) => {
             const owned = userItems[item.id];
             const canAfford = userData.points >= item.cost;
+            const preferenceBadge = getPreferenceBadge(item);
 
             return (
               <div
@@ -433,21 +451,30 @@ export function ShopPage() {
                   'relative bg-white rounded-2xl p-3 text-center transition-all shadow-warm',
                   owned && 'ring-2 ring-green-400 bg-green-50',
                   !owned && canAfford && 'hover:shadow-warm-lg hover:scale-105 cursor-pointer active:scale-95',
-                  !owned && !canAfford && 'opacity-70 cursor-not-allowed'
+                  !owned && !canAfford && 'opacity-70 cursor-not-allowed',
+                  preferenceBadge?.className.includes('gray-600') && !owned && 'opacity-80'
                 )}
                 onClick={() => handlePurchase(item)}
               >
                 {/* 标签 */}
-                {owned && (
-                  <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    已拥有
-                  </div>
-                )}
+                <div className="absolute -top-1 right-3 flex flex-col gap-1">
+                  {owned && (
+                    <div className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      已拥有
+                    </div>
+                  )}
+                  {preferenceBadge && !owned && (
+                    <div className={cn(preferenceBadge.className, 'text-xs px-2 py-0.5 rounded-full')}>
+                      {preferenceBadge.text}
+                    </div>
+                  )}
+                </div>
 
                 {/* 物品图标 */}
                 <div className={cn(
                   'text-4xl mb-2',
-                  owned && 'grayscale'
+                  owned && 'grayscale',
+                  preferenceBadge?.className.includes('gray-600') && !owned && 'grayscale opacity-50'
                 )}>
                   {item.emoji}
                 </div>
@@ -464,10 +491,12 @@ export function ShopPage() {
                   owned
                     ? 'bg-green-100 text-green-600'
                     : canAfford
-                      ? 'bg-yellow-100 text-yellow-700'
+                      ? preferenceBadge?.className.includes('gray-600')
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-yellow-100 text-yellow-700'
                       : 'bg-gray-100 text-gray-500'
                 )}>
-                  {owned ? '✓ 已拥有' : `${item.cost}积分`}
+                  {owned ? '✓ 已拥有' : preferenceBadge?.className.includes('gray-600') ? '⚠️ 有害' : `${item.cost}积分`}
                 </div>
               </div>
             );

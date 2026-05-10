@@ -30,6 +30,14 @@ const LEARNING_MODULES = [
     path: '/dialogue',
   },
   {
+    id: 'listening',
+    title: '听力练习',
+    description: '听音选图训练',
+    icon: '👂',
+    color: 'from-cyan-400 to-cyan-500',
+    path: '/listening',
+  },
+  {
     id: 'games',
     title: '游戏中心',
     description: '趣味英语游戏',
@@ -45,19 +53,13 @@ const LEARNING_MODULES = [
     color: 'from-yellow-400 to-yellow-500',
     path: '/shop',
   },
-  {
-    id: 'review',
-    title: '复习模块',
-    description: '复习错题本',
-    icon: '🔄',
-    color: 'from-purple-400 to-purple-500',
-    path: '/review',
-  },
 ];
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { userData, getCurrentLevel, getLevelProgress } = useUserData();
+  const { userData, getCurrentLevel, getLevelProgress, getWordsForReview } = useUserData();
+  
+  const pendingReviewCount = getWordsForReview().length;
 
   const currentPet = userData.adoptedPet ? PET_FACES[userData.adoptedPet] : null;
   const currentLevel = getCurrentLevel();
@@ -170,26 +172,63 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* 错题提示 */}
-      {userData.wrongQuestions.length > 0 && (
-        <div className="max-w-4xl mx-auto px-4 mt-6">
-          <button
-            onClick={() => navigate('/review')}
-            className="w-full bg-purple-50 border-2 border-purple-200 rounded-2xl p-4 flex items-center gap-4 hover:bg-purple-100 transition-colors"
-          >
-            <span className="text-3xl">📚</span>
-            <div className="text-left">
-              <p className="font-bold text-purple-800">
-                错题本
-                <span className="ml-2 bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {userData.wrongQuestions.length} 题待复习
-                </span>
+      {/* 复习入口 */}
+      <div className="max-w-4xl mx-auto px-4 mt-6">
+        <div className="bg-white rounded-2xl shadow-warm-lg p-4">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="text-xl">📚</span>
+            智能复习
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => navigate('/review')}
+              className="bg-gradient-to-br from-purple-400 to-purple-500 rounded-xl p-4 text-white text-left hover:opacity-90 transition-opacity"
+            >
+              <div className="text-3xl mb-2">🎯</div>
+              <p className="font-bold">今日复习</p>
+              <p className="text-sm text-white/80">
+                {pendingReviewCount > 0 ? `${pendingReviewCount} 个单词待复习` : '暂无待复习单词'}
               </p>
-              <p className="text-purple-600 text-sm">快去复习之前的错题吧！</p>
-            </div>
-          </button>
+            </button>
+            
+            <button
+              onClick={() => navigate('/review')}
+              className={cn(
+                'rounded-xl p-4 text-left transition-opacity',
+                userData.wrongQuestions.length > 0
+                  ? 'bg-gradient-to-br from-red-400 to-red-500 text-white hover:opacity-90'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              )}
+            >
+              <div className="text-3xl mb-2">❌</div>
+              <p className="font-bold">错题本</p>
+              <p className="text-sm">
+                {userData.wrongQuestions.length > 0 
+                  ? `${userData.wrongQuestions.length} 道错题` 
+                  : '暂无错题'}
+              </p>
+            </button>
+            
+            <button
+              onClick={() => navigate('/review')}
+              className={cn(
+                'rounded-xl p-4 text-left transition-opacity',
+                userData.markedWords.length > 0
+                  ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white hover:opacity-90'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              )}
+            >
+              <div className="text-3xl mb-2">⭐</div>
+              <p className="font-bold">重点词</p>
+              <p className="text-sm">
+                {userData.markedWords.length > 0 
+                  ? `${userData.markedWords.length} 个单词` 
+                  : '暂无标记'}
+              </p>
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* 底部提示 */}
       <div className="max-w-4xl mx-auto px-4 mt-8 text-center text-gray-500 text-sm">

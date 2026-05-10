@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Star, Volume2, VolumeX, Home } from 'lucide-react';
 import { useUserData } from '@/hooks/useUserData';
+import { VoiceGenderToggle } from '@/components/VoiceGenderToggle';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -45,8 +46,11 @@ export function Header({ showBack = false, title }: HeaderProps) {
             </h1>
           )}
 
-          {/* 右侧：积分 + 小动物状态 */}
+          {/* 右侧：语音性别切换 + 语音开关 + 积分 + 小动物状态 */}
           <div className="flex items-center gap-4">
+            {/* 语音性别切换 */}
+            {userData.voiceEnabled && <VoiceGenderToggle />}
+            
             {/* 语音开关 */}
             <button
               onClick={() => setVoiceEnabled(!userData.voiceEnabled)}

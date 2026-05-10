@@ -5,8 +5,8 @@ import { cn } from '@/lib/utils';
 const GAMES = [
   {
     id: 'listening',
-    title: '单词配对',
-    description: '翻卡片找配对',
+    title: '词汇配对',
+    description: '中英文双向练习',
     icon: '🔤',
     color: 'from-blue-400 to-blue-500',
     path: '/games/listening',

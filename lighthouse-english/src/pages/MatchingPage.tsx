@@ -481,7 +481,7 @@ export function MatchingPage() {
                   </button>
                   
                   {/* 独立的听按钮 - 与选项操作分开 */}
-                  {optionsAreWords && selectedAnswer === null && (
+                  {selectedMode === 'picture-to-word' && selectedAnswer === null && (
                     <div className="flex items-center gap-2">
                       <SpeechButton text={option} size="sm" />
                     </div>

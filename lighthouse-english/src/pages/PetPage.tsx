@@ -33,12 +33,15 @@ export function PetPage() {
     consumeItem,
     getNextLevel,
     getLevelProgress,
+    getGrowthValue,
   } = useUserData();
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number; previousLevel: number } | null>(null);
   const [feedSuccess, setFeedSuccess] = useState(false);
   const [usedItemName, setUsedItemName] = useState<string | null>(null);
+  const [lastFeedGrowth, setLastFeedGrowth] = useState<number>(2);
+  const [lastFeedBad, setLastFeedBad] = useState(false);
 
   const nextLevel = getNextLevel();
   const levelProgress = getLevelProgress();
@@ -145,11 +148,11 @@ export function PetPage() {
               <div
                 className={cn(
                   'rounded-full bg-white flex items-center justify-center shadow-lg transition-all duration-500 border-4',
-                  userData.petLevel === 1 && 'w-24 h-24 text-5xl border-amber-200',
-                  userData.petLevel === 2 && 'w-28 h-28 text-6xl border-orange-300',
-                  userData.petLevel === 3 && 'w-32 h-32 text-6xl border-pink-300',
-                  userData.petLevel === 4 && 'w-36 h-36 text-7xl border-purple-300 pet-aura-soft',
-                  userData.petLevel >= 5 && 'w-40 h-40 text-7xl sm:text-8xl border-amber-400 pet-aura-strong',
+                  userData.petLevel === 1 && 'w-24 h-24 text-5xl border-amber-200 pet-idle-breathe',
+                  userData.petLevel === 2 && 'w-28 h-28 text-6xl border-orange-300 pet-idle-breathe',
+                  userData.petLevel === 3 && 'w-32 h-32 text-6xl border-pink-300 pet-wiggle',
+                  userData.petLevel === 4 && 'w-36 h-36 text-7xl border-purple-300 pet-aura-soft pet-wiggle',
+                  userData.petLevel >= 5 && 'w-40 h-40 text-7xl sm:text-8xl border-amber-400 pet-aura-strong pet-wiggle',
                   feedSuccess && 'animate-bounce scale-105'
                 )}
               >
@@ -284,38 +287,53 @@ export function PetPage() {
                 const item = findShopItemById(itemId);
                 const name = item?.name ?? '神秘物品';
                 const emoji = item?.emoji ?? '🎁';
+                const growth = userData.adoptedPet ? getGrowthValue(userData.adoptedPet, itemId) : 2;
                 return (
                   <button
                     key={itemId}
                     type="button"
                     onClick={() => {
-                      if (consumeItem(itemId)) {
+                      const result = consumeItem(itemId);
+                      if (result.success) {
                         setUsedItemName(emoji);
+                        setLastFeedGrowth(result.growth);
+                        setLastFeedBad(result.isBad);
                         setFeedSuccess(true);
                         setTimeout(() => {
                           setFeedSuccess(false);
                           setUsedItemName(null);
-                        }, 1500);
+                          setLastFeedGrowth(2);
+                          setLastFeedBad(false);
+                        }, 2000);
 
                         const nextLevel = getNextLevel();
-                        if (nextLevel && userData.petExp + 2 >= nextLevel.minExp) {
+                        if (nextLevel && userData.petExp + result.growth >= nextLevel.minExp) {
                           setLevelUpData({
                             newLevel: userData.petLevel + 1,
                             previousLevel: userData.petLevel,
                           });
-                          setTimeout(() => setShowLevelUp(true), 1600);
+                          setTimeout(() => setShowLevelUp(true), 1800);
                         }
                       }
                     }}
-                    className="bg-white rounded-xl px-4 py-2 flex items-center gap-2 hover:bg-orange-50 transition-all shadow-sm hover:shadow-md active:scale-95"
+                    className={cn(
+                      'rounded-xl px-4 py-2 flex items-center gap-2 transition-all shadow-sm hover:shadow-md active:scale-95',
+                      growth === 0 ? 'bg-gray-100 opacity-70' : 'bg-white hover:bg-orange-50'
+                    )}
                   >
                     <span className="text-2xl">{emoji}</span>
                     <div className="text-left">
                       <div className="font-bold text-sm text-gray-800">{name}</div>
                       <div className="text-xs text-orange-500">x{count}</div>
                     </div>
-                    <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full ml-1">
-                      +2成长
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full ml-1 font-medium',
+                      growth === 3 ? 'bg-red-100 text-red-600' :
+                      growth === 2 ? 'bg-green-100 text-green-600' :
+                      growth === 1 ? 'bg-yellow-100 text-yellow-600' :
+                      'bg-gray-200 text-gray-500'
+                    )}>
+                      {growth === 0 ? '⚠️ 有害' : `+${growth}成长`}
                     </span>
                   </button>
                 );
@@ -384,8 +402,17 @@ export function PetPage() {
 
         {/* 喂养成功提示 */}
         {feedSuccess && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce">
-            {usedItemName ? `${usedItemName} 喂养成功！+2成长值` : '🎉 喂养成功！'}
+          <div className={cn(
+            'fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-lg animate-bounce',
+            lastFeedBad ? 'bg-red-500' : 'bg-green-500'
+          )}>
+            <span className="text-white">
+              {usedItemName && lastFeedBad
+                ? `${usedItemName} 这个对小动物有害！💔`
+                : usedItemName
+                  ? `${usedItemName} 喂养成功！+${lastFeedGrowth}成长值 🎉`
+                  : '🎉 喂养成功！'}
+            </span>
           </div>
         )}
       </div>

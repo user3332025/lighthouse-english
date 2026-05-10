@@ -109,6 +109,33 @@ export interface OrderingQuestion extends QuestionData {
   correctOrder: number[];
 }
 
+// 复习间隔时间（分钟）- 艾宾浩斯遗忘曲线
+export const REVIEW_INTERVALS = [0, 5, 30, 1440, 2880, 5760, 10080, 21600]; // 0分钟(立刻), 5分钟, 30分钟, 1天, 2天, 4天, 7天, 15天
+
+// 单词学习记录
+export interface WordLearningRecord {
+  word: string;
+  textbookId: string;
+  unitId: number;
+  learnedAt: number;
+  nextReviewAt: number;
+  reviewCount: number;
+  correctCount: number;
+  wrongCount: number;
+  currentIntervalIndex: number; // 当前复习间隔索引
+  isMastered: boolean; // 是否已掌握
+}
+
+// 重点词标记
+export interface MarkedWord {
+  word: string;
+  textbookId: string;
+  unitId: number;
+  markedAt: number;
+  meaning: string;
+  phonetic: string;
+}
+
 // 用户数据
 export interface UserData {
   points: number;
@@ -125,6 +152,18 @@ export interface UserData {
   };
   voiceEnabled: boolean;
   userItems: Record<string, number>; // 拥有的物品 { itemId: count }
+  wordLearningRecords: WordLearningRecord[]; // 单词学习记录
+  markedWords: MarkedWord[]; // 生词本/重点词
+}
+
+// 食物偏好类型
+export type FoodPreference = 'favorite' | 'good' | 'neutral' | 'bad';
+
+// 宠物食物偏好配置
+export interface PetFoodPreferences {
+  [petType: string]: {
+    [itemId: string]: FoodPreference;
+  };
 }
 
 // 页面路由
