@@ -6,15 +6,15 @@ import { cn } from '@/lib/utils';
 interface HeaderProps {
   showBack?: boolean;
   title?: string;
+  points?: number;
 }
 
 export function Header({ showBack = false, title }: HeaderProps) {
   const navigate = useNavigate();
-  const { userData, setVoiceEnabled, getCurrentLevel, getLevelProgress, PET_FACES } = useUserData();
+  const { userData, setVoiceEnabled, PET_FACES } = useUserData();
 
-  const currentPet = userData.adoptedPet ? PET_FACES[userData.adoptedPet] : null;
-  const currentLevel = getCurrentLevel();
-  const levelProgress = getLevelProgress();
+  const activePet = userData.petHome.pets.find(p => p.id === userData.petHome.activePetId);
+  const currentPet = activePet ? PET_FACES[activePet.type] : null;
 
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-primary-500 to-primary-400 text-white shadow-lg">
@@ -45,11 +45,8 @@ export function Header({ showBack = false, title }: HeaderProps) {
             </h1>
           )}
 
-          {/* 右侧：语音性别切换 + 语音开关 + 积分 + 小动物状态 */}
+          {/* 右侧：语音开关 + 积分 + 小动物状态 */}
           <div className="flex items-center gap-4">
-            {/* 语音性别切换 */}
-            {userData.voiceEnabled && <VoiceGenderToggle />}
-            
             {/* 语音开关 */}
             <button
               onClick={() => setVoiceEnabled(!userData.voiceEnabled)}
@@ -73,7 +70,7 @@ export function Header({ showBack = false, title }: HeaderProps) {
             </div>
 
             {/* 小动物状态 */}
-            {currentPet && (
+            {currentPet && activePet && (
               <button
                 onClick={() => navigate('/pet')}
                 className="flex items-center gap-2 bg-primary-600 px-3 py-1.5 rounded-full hover:bg-primary-600/80 transition-colors"
@@ -81,14 +78,8 @@ export function Header({ showBack = false, title }: HeaderProps) {
                 <span className="text-xl">{currentPet.normal}</span>
                 <div className="hidden sm:flex flex-col items-start">
                   <span className="text-xs opacity-80">
-                    Lv{userData.petLevel} {currentLevel.name}
+                    Lv{activePet.level}
                   </span>
-                  <div className="w-16 h-1.5 bg-primary-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-yellow-300 transition-all duration-300"
-                      style={{ width: `${levelProgress}%` }}
-                    />
-                  </div>
                 </div>
               </button>
             )}

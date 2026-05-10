@@ -40,19 +40,27 @@ export type FoodCategory = 'snack' | 'fruit' | 'meal';
 // 玩具类型
 export type ToyCategory = 'ball' | 'plush' | 'game';
 
+// 装饰配件类型
+export type AccessoryCategory = 'crown' | 'hat' | 'glasses' | 'bow';
+
+// 背景装饰类型
+export type BackgroundCategory = 'nature' | 'space' | 'fantasy';
+
 // 物品类型
 export interface Item {
   id: string;
   name: string;
   emoji: string;
   cost: number;
-  category: FoodCategory | ToyCategory;
-  type: 'food' | 'toy';
+  category: FoodCategory | ToyCategory | AccessoryCategory | BackgroundCategory;
+  type: 'food' | 'toy' | 'accessory' | 'background';
   effect: {
     hunger?: number; // 恢复饥饿值
     happiness?: number; // 增加快乐值
     exp?: number; // 增加经验值
   };
+  // 背景专属：CSS样式，用于渲染宠物小窝背景
+  bgStyle?: string;
 }
 
 // 游戏进度
@@ -195,6 +203,13 @@ export interface UserData {
   wordLearningRecords: WordLearningRecord[]; // 单词学习记录
   markedWords: MarkedWord[]; // 生词本/重点词
   petHome: PetHome; // 宠物小窝
+  completedQuizzes?: {
+    dialogue: number;
+    sentence: number;
+    listening: number;
+    matching: number;
+    ordering: number;
+  };
 }
 
 // 食物偏好类型

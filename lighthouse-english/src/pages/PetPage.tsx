@@ -1,19 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, Sparkles } from 'lucide-react';
+import { Star, Heart, Utensils, Sparkles, Sun, Moon } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { PetModal } from '@/components/PetModal';
-import { useUserData, PET_FACES, PET_LEVELS } from '@/hooks/useUserData';
+import { useUserData, PET_FACES, PET_LEVELS, PET_NAMES } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
-import { PetType } from '@/types';
-import { PET_ITEMS, findItemById } from '@/data/petItems';
+import { PetType, Pet, Item } from '@/types';
+import { PET_ITEMS, findItemById, PET_EMOJIS } from '@/data/petItems';
 
-const PETS: { type: PetType; name: string; emoji: string }[] = [
-  { type: 'dog', name: '小狗狗', emoji: '🐶' },
-  { type: 'cat', name: '小猫咪', emoji: '🐱' },
-  { type: 'rabbit', name: '小兔子', emoji: '🐰' },
-  { type: 'bear', name: '小熊', emoji: '🐻' },
-  { type: 'fox', name: '小狐狸', emoji: '🦊' },
+const PETS: { type: PetType; name: string; emoji: string; description: string }[] = [
+  { type: 'dog', name: '小狗狗', emoji: '🐶', description: '忠诚可爱，喜欢玩耍' },
+  { type: 'cat', name: '小猫咪', emoji: '🐱', description: '优雅傲娇，爱撒娇' },
+  { type: 'rabbit', name: '小兔子', emoji: '🐰', description: '软萌可爱，蹦蹦跳跳' },
+  { type: 'bear', name: '小熊', emoji: '🐻', description: '憨厚老实，爱吃蜂蜜' },
+  { type: 'fox', name: '小狐狸', emoji: '🦊', description: '聪明伶俐，毛色漂亮' },
 ];
 
 export function PetPage() {
@@ -21,22 +21,47 @@ export function PetPage() {
   const {
     userData,
     adoptPet,
+    adoptTestPet,
     feedPet,
-    updatePet,
+    playWithPet,
     getActivePet,
     addPoints,
     spendPoints,
     getItemCount,
     useItem,
+    setPetAccessory,
+    setPetBackground,
   } = useUserData();
+  
+  const [showAccessorySelector, setShowAccessorySelector] = useState(false);
+  const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
+  const [testPetLevel, setTestPetLevel] = useState(1);
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number; previousLevel: number } | null>(null);
   const [feedSuccess, setFeedSuccess] = useState(false);
+  const [playSuccess, setPlaySuccess] = useState(false);
   const [isPetClicked, setIsPetClicked] = useState(false);
   const [petMood, setPetMood] = useState<'normal' | 'happy' | 'excited'>('normal');
+  const [currentAction, setCurrentAction] = useState<string | null>(null);
 
   const activePet = getActivePet();
+
+  useEffect(() => {
+    if (!activePet) return;
+    
+    const now = Date.now();
+    const hoursSinceFed = (now - activePet.lastFed) / (1000 * 60 * 60);
+    const hoursSincePlayed = (now - activePet.lastPlayed) / (1000 * 60 * 60);
+    
+    if (hoursSinceFed > 2) {
+      setPetMood('normal');
+    }
+    if (hoursSinceFed > 4) {
+      setPetMood('normal');
+    }
+  }, [activePet]);
 
   const handleAdopt = (petType: PetType) => {
     adoptPet(petType);
@@ -48,9 +73,23 @@ export function PetPage() {
     const appleCount = getItemCount('apple');
     if (appleCount > 0) {
       if (useItem('apple')) {
-        feedPet(activePet.id, 'apple');
-        setFeedSuccess(true);
-        setTimeout(() => setFeedSuccess(false), 1000);
+        const result = feedPet(activePet.id, 'apple');
+        if (result) {
+          setCurrentAction('eating');
+          setFeedSuccess(true);
+          setTimeout(() => {
+            setFeedSuccess(false);
+            setCurrentAction(null);
+          }, 1500);
+
+          if (result.leveledUp) {
+            setLevelUpData({
+              newLevel: result.newLevel,
+              previousLevel: Math.max(1, result.newLevel - 1),
+            });
+            setTimeout(() => setShowLevelUp(true), 1800);
+          }
+        }
       }
     } else {
       if (userData.points < 15) {
@@ -58,13 +97,54 @@ export function PetPage() {
         return;
       }
       spendPoints(15);
-      feedPet(activePet.id, 'apple');
-      setFeedSuccess(true);
-      setTimeout(() => setFeedSuccess(false), 1000);
+      const result = feedPet(activePet.id, 'apple');
+      if (result) {
+        setCurrentAction('eating');
+        setFeedSuccess(true);
+        setTimeout(() => {
+          setFeedSuccess(false);
+          setCurrentAction(null);
+        }, 1500);
+
+        if (result.leveledUp) {
+          setLevelUpData({
+            newLevel: result.newLevel,
+            previousLevel: Math.max(1, result.newLevel - 1),
+          });
+          setTimeout(() => setShowLevelUp(true), 1800);
+        }
+      }
     }
   };
 
-  const petFace = userData.adoptedPet ? PET_FACES[userData.adoptedPet] : null;
+  const handlePlay = (toyId: string) => {
+    if (!activePet) return;
+    
+    const count = getItemCount(toyId);
+    if (count > 0) {
+      if (useItem(toyId)) {
+        const result = playWithPet(activePet.id, toyId);
+        if (result) {
+          setCurrentAction('playing');
+          setPlaySuccess(true);
+          setTimeout(() => {
+            setPlaySuccess(false);
+            setCurrentAction(null);
+          }, 1500);
+
+          if (result.leveledUp) {
+            setLevelUpData({
+              newLevel: result.newLevel,
+              previousLevel: Math.max(1, result.newLevel - 1),
+            });
+            setTimeout(() => setShowLevelUp(true), 1800);
+          }
+        }
+      }
+    } else {
+      alert('这个玩具已经用完了，去商店买新的吧！');
+    }
+  };
 
   const handlePetClick = () => {
     setIsPetClicked(true);
@@ -77,96 +157,178 @@ export function PetPage() {
       setPetMood('normal');
     }, 2000);
   };
-  
-  const stageEmoji = PET_EMOJIS[userData.adoptedPet || 'dog'] || '🐾';
-  const mainPetEmoji = feedSuccess ? '🍎' : stageEmoji;
 
-  // 未领养状态 - 选择小动物
-  if (!userData.adoptedPet) {
+  const getPetEmoji = (pet: Pet) => {
+    if (!pet) return '🐾';
+    
+    const face = PET_FACES[pet.type];
+    
+    if (currentAction === 'eating') return '🍎';
+    if (currentAction === 'playing') return '🎮';
+    if (petMood === 'happy' && face?.happy) return face.happy;
+    if (pet.hunger < 30 && face?.hungry) return face.hungry;
+    if (face?.normal) return face.normal;
+    
+    return PET_EMOJIS[pet.type] || '🐾';
+  };
+
+  const getStatusColor = (value: number) => {
+    if (value >= 70) return 'bg-green-500';
+    if (value >= 40) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getStatusText = (value: number) => {
+    if (value >= 80) return '很满足';
+    if (value >= 60) return '不错';
+    if (value >= 40) return '一般';
+    if (value >= 20) return '有点饿/无聊';
+    return '需要关爱';
+  };
+
+  if (!userData.petHome.pets.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 via-orange-50 to-amber-100 pb-8">
         <Header showBack title="小动物养成" />
 
         <div className="max-w-4xl mx-auto px-4 mt-4">
-          {/* 欢迎卡片 */}
-          <div className="bg-gradient-to-r from-pink-400 to-orange-400 rounded-2xl p-6 text-white text-center mb-6">
-            <div className="text-5xl mb-3">🐣</div>
-            <h2 className="text-xl font-bold mb-2">选择你的小伙伴！</h2>
-            <p className="text-white/80">领养一只小动物，和它一起学英语吧！</p>
+          <div className="bg-gradient-to-r from-pink-400 via-orange-400 to-yellow-400 rounded-3xl p-8 text-white text-center mb-8 shadow-warm-lg">
+            <div className="text-7xl mb-4 animate-bounce">🏠</div>
+            <h2 className="text-2xl font-bold mb-2">欢迎来到宠物小窝！</h2>
+            <p className="text-white/90">领养一只可爱的小动物，和它一起快乐成长吧！</p>
           </div>
 
-          {/* 小动物列表 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {PETS.map((pet) => (
               <button
                 key={pet.type}
-                onClick={() => handleAdopt(pet.type)}
-                className="bg-white rounded-2xl p-6 shadow-warm hover:shadow-warm-lg transition-all hover:scale-105 text-center"
+                onClick={() => isTestMode ? adoptTestPet(pet.type, testPetLevel) : adoptPet(pet.type)}
+                className="bg-white rounded-2xl p-6 shadow-warm hover:shadow-warm-lg transition-all duration-300 hover:scale-105 hover:-translate-y-1 text-center group"
               >
-                <div className="text-7xl mb-3">{pet.emoji}</div>
-                <h3 className="font-bold text-lg text-gray-800">{pet.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">点击领养</p>
+                <div className="text-7xl mb-3 group-hover:animate-bounce">{pet.emoji}</div>
+                <h3 className="font-bold text-lg text-gray-800 mb-1">{pet.name}</h3>
+                <p className="text-sm text-gray-500">{pet.description}</p>
+                <div className="mt-3 bg-gradient-to-r from-orange-400 to-pink-500 text-white text-sm px-4 py-2 rounded-full inline-block opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isTestMode ? `点击领养 Lv${testPetLevel}` : '点击领养'}
+                </div>
               </button>
             ))}
           </div>
 
-          {/* 积分提示 */}
-          <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-orange-700">
-              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-              <span className="font-medium">
-                你有 {userData.points} 积分
+          <div className="mt-4 bg-blue-50 rounded-xl p-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isTestMode}
+                onChange={(e) => setIsTestMode(e.target.checked)}
+                className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                🧪 测试模式（仅测试使用）
               </span>
+            </label>
+            
+            {isTestMode && (
+              <div className="mt-4 space-y-3">
+                <div className="text-sm font-medium text-gray-700 mb-2">选择测试等级：</div>
+                <div className="grid grid-cols-5 gap-2">
+                  {PET_LEVELS.map((level) => (
+                    <button
+                      key={level.level}
+                      onClick={() => setTestPetLevel(level.level)}
+                      className={cn(
+                        'p-3 rounded-xl text-center transition-all',
+                        testPetLevel === level.level
+                          ? 'bg-blue-500 text-white ring-2 ring-blue-300 ring-offset-2'
+                          : 'bg-white hover:bg-blue-100 text-gray-700'
+                      )}
+                    >
+                      <div className="text-2xl mb-1">{level.appearance}</div>
+                      <div className="text-xs font-bold">Lv{level.level}</div>
+                      <div className="text-[10px] opacity-80">{level.name}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-blue-600 mt-2">
+                  当前选择：Lv{testPetLevel} {PET_LEVELS.find(l => l.level === testPetLevel)?.name} 
+                  (需要 {PET_LEVELS[testPetLevel - 1]?.minExp} 经验)
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 bg-white rounded-2xl p-4 shadow-warm">
+            <div className="flex items-center gap-3 mb-3">
+              <Star className="w-6 h-6 text-yellow-500 fill-yellow-500" />
+              <span className="font-bold text-gray-800">积分说明</span>
             </div>
-            <p className="text-sm text-orange-600 mt-2">
-              💡 答题可以获得积分，用积分喂养小动物让它成长！
-            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📚</span>
+                <span>学习答题获得积分</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🍎</span>
+                <span>用积分购买食物</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎾</span>
+                <span>和宠物玩耍增加快乐值</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⭐</span>
+                <span>宠物升级解锁新形态</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-gray-600">当前积分</span>
+              <span className="font-bold text-xl text-orange-500">{userData.points} ⭐</span>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // 已领养状态 - 喂养和升级
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
-      <Header showBack title="小动物养成" />
+    <div className="min-h-screen bg-gradient-to-b from-primary-50 via-orange-50 to-amber-100 pb-8">
+      <Header showBack title="宠物小窝" />
 
       <div className="max-w-4xl mx-auto px-4 mt-4">
-        {/* 小动物卡片 */}
-        <div className="bg-white rounded-2xl shadow-warm-lg overflow-hidden mb-6">
-          {/* 顶部背景：随等级变换色调 */}
+        <div className="bg-white rounded-3xl shadow-warm-lg overflow-hidden mb-6">
           <div
             className={cn(
-              'h-40 relative transition-all duration-700 overflow-hidden',
-              userData.petLevel <= 1 && 'bg-gradient-to-r from-amber-300 to-orange-400',
-              userData.petLevel === 2 && 'bg-gradient-to-r from-orange-400 to-pink-400',
-              userData.petLevel === 3 && 'bg-gradient-to-r from-pink-400 to-purple-400',
-              userData.petLevel === 4 && 'bg-gradient-to-r from-purple-400 to-indigo-500',
-              userData.petLevel >= 5 && 'bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500'
+              'h-44 relative transition-all duration-700 overflow-hidden',
+              // 优先使用背景装饰，没有时才使用等级默认背景
+              activePet?.background 
+                ? findItemById(activePet.background)?.bgStyle 
+                : (activePet?.level <= 1 && 'bg-gradient-to-br from-amber-200 via-orange-300 to-yellow-200' ||
+                   activePet?.level === 2 && 'bg-gradient-to-br from-orange-300 via-pink-300 to-rose-200' ||
+                   activePet?.level === 3 && 'bg-gradient-to-br from-pink-300 via-purple-300 to-violet-200' ||
+                   activePet?.level === 4 && 'bg-gradient-to-br from-purple-300 via-indigo-300 to-blue-200' ||
+                   activePet?.level >= 5 && 'bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400')
             )}
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_55%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.4),transparent_55%)] pointer-events-none" />
             
-            {userData.petDecoration.background && (
-              <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                <span className="text-6xl sm:text-7xl">{findShopItemById(userData.petDecoration.background)?.emoji}</span>
-              </div>
-            )}
-            
+            <div className="absolute top-4 left-4 text-4xl opacity-30 animate-float">🌿</div>
+            <div className="absolute top-8 right-8 text-3xl opacity-30 animate-float-delayed">🌸</div>
+            <div className="absolute bottom-8 left-8 text-3xl opacity-30 animate-float">🌻</div>
+
             <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center">
               <div className="relative">
                 <button
                   onClick={handlePetClick}
                   className={cn(
-                    'rounded-full bg-white flex items-center justify-center shadow-lg transition-all duration-300 border-4 cursor-pointer hover:scale-105 active:scale-95',
-                    userData.petLevel === 1 && 'w-32 h-32 text-6xl border-amber-200 pet-idle-breathe',
-                    userData.petLevel === 2 && 'w-36 h-36 text-7xl border-orange-300 pet-idle-breathe',
-                    userData.petLevel === 3 && 'w-40 h-40 text-7xl border-pink-300 pet-wiggle',
-                    userData.petLevel === 4 && 'w-44 h-44 text-8xl border-purple-300 pet-aura-soft pet-wiggle',
-                    userData.petLevel >= 5 && 'w-48 h-48 text-8xl sm:text-9xl border-amber-400 pet-aura-strong pet-wiggle',
+                    'rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-xl transition-all duration-300 border-4 cursor-pointer hover:scale-105 active:scale-95',
+                    activePet?.level === 1 && 'w-36 h-36 text-7xl border-amber-300 pet-idle-breathe',
+                    activePet?.level === 2 && 'w-40 h-40 text-8xl border-orange-300 pet-idle-breathe',
+                    activePet?.level === 3 && 'w-44 h-44 text-8xl border-pink-300 pet-wiggle',
+                    activePet?.level === 4 && 'w-48 h-48 text-9xl border-purple-300 pet-aura-soft pet-wiggle',
+                    activePet?.level >= 5 && 'w-52 h-52 text-9xl sm:text-[150px] border-amber-400 pet-aura-strong pet-wiggle',
                     feedSuccess && 'animate-bounce scale-110',
-                    isPetClicked && 'animate-ping scale-115'
+                    isPetClicked && 'scale-115',
+                    playSuccess && 'animate-spin-slow'
                   )}
                 >
                   <span 
@@ -175,79 +337,124 @@ export function PetPage() {
                       petMood === 'excited' && 'animate-bounce',
                       petMood === 'happy' && 'scale-110'
                     )} 
-                    title={`当前形态 Lv${userData.petLevel} - 点击互动！`}
+                    title={`${PET_NAMES[activePet?.type || 'dog']} Lv${activePet?.level} - 点击互动！`}
                   >
-                    {petMood === 'happy' && petFace?.happy ? petFace.happy : mainPetEmoji}
+                    {getPetEmoji(activePet!)}
                   </span>
                 </button>
                 
-                {userData.petDecoration.accessory && (
-                  <div className="absolute -top-2 -right-2 text-3xl animate-bounce">
-                    {findShopItemById(userData.petDecoration.accessory)?.emoji}
+                {activePet?.accessory && (
+                  <div className="absolute -top-3 -right-3 text-4xl animate-bounce">
+                    {findItemById(activePet.accessory)?.emoji}
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-sm font-bold text-white/95 drop-shadow-md bg-black/20 px-4 py-1.5 rounded-full">
-                当前形态 · Lv{userData.petLevel} {PET_LEVELS.find((l) => l.level === userData.petLevel)?.name}
-              </p>
-              <span className="mt-1 text-xs text-white/80 drop-shadow-md">👆 点击互动</span>
+              
+              <div className="mt-4 flex items-center gap-2">
+                <span className="bg-black/30 backdrop-blur-sm text-white px-4 py-1.5 rounded-full text-sm font-bold">
+                  {PET_NAMES[activePet?.type || 'dog']} · Lv{activePet?.level}
+                </span>
+                <span className="bg-black/30 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs">
+                  {PET_LEVELS.find(l => l.level === activePet?.level)?.name}
+                </span>
+              </div>
+              <span className="mt-2 text-xs text-white/80 drop-shadow-md">👆 点击互动</span>
             </div>
           </div>
 
-          {/* 信息区域 */}
-          <div className="pt-24 pb-6 px-6 text-center">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex flex-wrap items-center justify-center gap-2">
-              <span>我的小伙伴</span>
-              <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm px-3 py-1 rounded-full shadow">
-                Lv{userData.petLevel}
-                <span className="opacity-90 font-normal">
-                  {PET_LEVELS.find((l) => l.level === userData.petLevel)?.name}
-                </span>
-              </span>
-            </h2>
-            <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
-              升级后上方头像会变成新的样子，背景颜色也会变化哦！
-            </p>
-
-            {/* 成长进度 */}
-            <div className="mt-4 max-w-xs mx-auto">
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>成长值</span>
-                <span>{userData.petExp} / {nextLevel ? nextLevel.minExp : 40}</span>
+          <div className="pt-24 pb-6 px-6">
+            <div className="flex justify-center mb-6">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2 bg-orange-50 px-4 py-2 rounded-full">
+                  <Utensils className="w-5 h-5 text-orange-500" />
+                  <div className="w-20">
+                    <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${getStatusColor(activePet?.hunger || 0)}`}
+                        style={{ width: `${activePet?.hunger || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600 mt-1 block">{getStatusText(activePet?.hunger || 0)}</span>
+                  </div>
+                  <span className="text-sm font-bold text-orange-600">{activePet?.hunger || 0}%</span>
+                </div>
+                
+                <div className="flex items-center gap-2 bg-pink-50 px-4 py-2 rounded-full">
+                  <Heart className="w-5 h-5 text-pink-500" />
+                  <div className="w-20">
+                    <div className="h-2 bg-pink-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${getStatusColor(activePet?.happiness || 0)}`}
+                        style={{ width: `${activePet?.happiness || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600 mt-1 block">{getStatusText(activePet?.happiness || 0)}</span>
+                  </div>
+                  <span className="text-sm font-bold text-pink-600">{activePet?.happiness || 0}%</span>
+                </div>
               </div>
-              <div className="w-full h-4 bg-orange-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-500"
-                  style={{ width: `${levelProgress}%` }}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="text-center bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-3">
+                <div className="text-2xl mb-1">⭐</div>
+                <div className="text-xs text-gray-500">等级</div>
+                <div className="font-bold text-gray-800">Lv{activePet?.level}</div>
+              </div>
+              <div className="text-center bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3">
+                <div className="text-2xl mb-1">📈</div>
+                <div className="text-xs text-gray-500">经验值</div>
+                <div className="font-bold text-gray-800">{activePet?.exp}</div>
+              </div>
+              <div className="text-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-3">
+                <div className="text-2xl mb-1">🏆</div>
+                <div className="text-xs text-gray-500">积分</div>
+                <div className="font-bold text-gray-800">{userData.points}</div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-orange-100 to-amber-100 rounded-xl p-4 mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">成长进度</span>
+                <span className="text-sm text-gray-600">
+                  {activePet?.exp} / {PET_LEVELS.find(l => l.level === activePet?.level + 1)?.minExp || '已满级'}
+                </span>
+              </div>
+              <div className="h-3 bg-white rounded-full overflow-hidden shadow-inner">
+                <div 
+                  className="h-full bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 rounded-full transition-all duration-700"
+                  style={{ 
+                    width: activePet?.level >= PET_LEVELS.length 
+                      ? '100%' 
+                      : `${((activePet?.exp || 0) / (PET_LEVELS.find(l => l.level === activePet?.level + 1)?.minExp || 1)) * 100}%` 
+                  }}
                 />
               </div>
-              {nextLevel && (
-                <p className="text-xs text-gray-500 mt-1">
-                  再 {nextLevel.minExp - userData.petExp} 点成长值即可升级！
+              {activePet?.level < PET_LEVELS.length && (
+                <p className="text-xs text-gray-600 mt-2 text-center">
+                  再获得 {PET_LEVELS.find(l => l.level === activePet?.level + 1)?.minExp - (activePet?.exp || 0)} 经验即可升级！
                 </p>
               )}
             </div>
 
-            {/* 等级时间线 */}
-            <div className="mt-6 flex justify-center gap-1 sm:gap-2 flex-wrap max-w-lg mx-auto">
+            <div className="flex justify-center gap-2 flex-wrap max-w-lg mx-auto">
               {PET_LEVELS.map((level) => {
-                const unlocked = level.level <= userData.petLevel;
-                const current = level.level === userData.petLevel;
-                const stagePreview = userData.adoptedPet
-                  ? getPetStageEmoji(userData.adoptedPet, level.level)
-                  : level.appearance;
+                const unlocked = level.level <= (activePet?.level || 1);
+                const current = level.level === (activePet?.level || 1);
                 return (
                   <div
                     key={level.level}
                     className={cn(
-                      'text-center px-2 py-2 sm:px-3 rounded-xl min-w-[3.25rem] transition-all duration-300',
-                      unlocked ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-400',
+                      'text-center px-3 py-2 rounded-xl min-w-[4rem] transition-all duration-300',
+                      unlocked ? 'bg-gradient-to-br from-orange-100 to-amber-100 text-orange-800' : 'bg-gray-100 text-gray-400',
                       current && 'ring-2 ring-orange-500 ring-offset-2 scale-110 shadow-md z-10'
                     )}
                   >
-                    <div className={cn('text-xl sm:text-2xl', current && 'animate-pulse')}>{stagePreview}</div>
-                    <div className="text-[10px] sm:text-xs font-bold mt-0.5">Lv{level.level}</div>
-                    <div className="text-[9px] text-gray-500 leading-tight hidden sm:block">{level.name}</div>
+                    <div className={cn('text-2xl', current && 'animate-pulse')}>
+                      {unlocked ? PET_EMOJIS[activePet?.type || 'dog'] : '❓'}
+                    </div>
+                    <div className="text-xs font-bold mt-1">Lv{level.level}</div>
+                    <div className="text-[10px] text-gray-500">{level.name}</div>
                   </div>
                 );
               })}
@@ -255,138 +462,115 @@ export function PetPage() {
           </div>
         </div>
 
-        {/* 喂养按钮 */}
-        <div className="bg-white rounded-2xl p-6 shadow-warm mb-6">
-          <div className="text-center mb-4">
-            <div className="text-4xl mb-2">🍖</div>
-            <h3 className="font-bold text-lg text-gray-800">喂养小动物</h3>
-            <p className="text-gray-500 text-sm">消耗 30 积分，获得 1 点成长值</p>
-          </div>
-
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-              <span className="font-medium">当前积分：{userData.points}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-2xl p-5 shadow-warm">
+            <div className="flex items-center gap-2 mb-3">
+              <Utensils className="w-5 h-5 text-orange-500" />
+              <h3 className="font-bold text-gray-800">喂食</h3>
             </div>
-            <button
-              onClick={handleFeed}
-              disabled={userData.points < 30}
-              className={cn(
-                'px-6 py-3 rounded-full font-bold transition-all shadow-warm',
-                userData.points >= 30
-                  ? 'bg-gradient-to-r from-orange-400 to-pink-500 text-white hover:scale-105'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              )}
-            >
-              🐟 喂养 (+1成长值)
-            </button>
-          </div>
-
-          {userData.points < 30 && (
-            <p className="text-center text-sm text-red-500">
-              💡 积分不足，去学习赚取更多积分吧！
-            </p>
-          )}
-        </div>
-
-        {/* 背包物品使用 */}
-        {Object.keys(userData.userItems || {}).length > 0 && (
-          <div className="bg-gradient-to-r from-orange-100 to-red-50 rounded-2xl p-4 shadow-warm mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <span className="text-2xl">🎁</span>
-                我的背包
-                <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {Object.keys(userData.userItems).length}
-                </span>
-              </h3>
-              <button
-                onClick={() => navigate('/shop')}
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
-              >
-                去商店 +
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 mb-3">
-              在商店兑换的物品都会出现在这里。点击下面任意物品喂给小动物，每次消耗 1 个并获得 +2 成长值。
-            </p>
+            <p className="text-sm text-gray-500 mb-3">消耗食物恢复饥饿值，获得经验</p>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(userData.userItems).map(([itemId, count]) => {
-                const item = findShopItemById(itemId);
-                const name = item?.name ?? '神秘物品';
-                const emoji = item?.emoji ?? '🎁';
-                const growth = userData.adoptedPet ? getGrowthValue(userData.adoptedPet, itemId) : 2;
-                return (
-                  <button
-                    key={itemId}
-                    type="button"
-                    onClick={() => {
-                      const result = consumeItem(itemId);
-                      if (result.success) {
-                        setUsedItemName(emoji);
-                        setLastFeedGrowth(result.growth);
-                        setLastFeedBad(result.isBad);
+              {PET_ITEMS.food.slice(0, 4).map((food) => (
+                <button
+                  key={food.id}
+                  onClick={() => {
+                    if (getItemCount(food.id) > 0) {
+                      useItem(food.id);
+                      feedPet(activePet!.id, food.id);
+                      setCurrentAction('eating');
+                      setFeedSuccess(true);
+                      setTimeout(() => {
+                        setFeedSuccess(false);
+                        setCurrentAction(null);
+                      }, 1500);
+                    } else {
+                      if (userData.points >= food.cost) {
+                        spendPoints(food.cost);
+                        feedPet(activePet!.id, food.id);
+                        setCurrentAction('eating');
                         setFeedSuccess(true);
                         setTimeout(() => {
                           setFeedSuccess(false);
-                          setUsedItemName(null);
-                          setLastFeedGrowth(2);
-                          setLastFeedBad(false);
-                        }, 2000);
-
-                        const nextLevel = getNextLevel();
-                        if (nextLevel && userData.petExp + result.growth >= nextLevel.minExp) {
-                          setLevelUpData({
-                            newLevel: userData.petLevel + 1,
-                            previousLevel: userData.petLevel,
-                          });
-                          setTimeout(() => setShowLevelUp(true), 1800);
-                        }
+                          setCurrentAction(null);
+                        }, 1500);
+                      } else {
+                        alert('积分不足！');
                       }
-                    }}
-                    className={cn(
-                      'rounded-xl px-4 py-2 flex items-center gap-2 transition-all shadow-sm hover:shadow-md active:scale-95',
-                      growth === 0 ? 'bg-gray-100 opacity-70' : 'bg-white hover:bg-orange-50'
-                    )}
-                  >
-                    <span className="text-2xl">{emoji}</span>
-                    <div className="text-left">
-                      <div className="font-bold text-sm text-gray-800">{name}</div>
-                      <div className="text-xs text-orange-500">x{count}</div>
-                    </div>
-                    <span className={cn(
-                      'text-xs px-2 py-0.5 rounded-full ml-1 font-medium',
-                      growth === 3 ? 'bg-red-100 text-red-600' :
-                      growth === 2 ? 'bg-green-100 text-green-600' :
-                      growth === 1 ? 'bg-yellow-100 text-yellow-600' :
-                      'bg-gray-200 text-gray-500'
-                    )}>
-                      {growth === 0 ? '⚠️ 有害' : `+${growth}成长`}
+                    }
+                  }}
+                  className={cn(
+                    'rounded-xl px-3 py-2 flex items-center gap-2 transition-all',
+                    getItemCount(food.id) > 0
+                      ? 'bg-orange-50 hover:bg-orange-100'
+                      : 'bg-gray-50 opacity-70'
+                  )}
+                >
+                  <span className="text-xl">{food.emoji}</span>
+                  <span className="text-sm font-medium text-gray-700">{food.name}</span>
+                  {getItemCount(food.id) > 0 ? (
+                    <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                      x{getItemCount(food.id)}
                     </span>
-                  </button>
-                );
-              })}
+                  ) : (
+                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                      {food.cost}⭐
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
+            <button
+              onClick={handleFeed}
+              disabled={userData.points < 15 && getItemCount('apple') === 0}
+              className={cn(
+                'w-full mt-3 py-3 rounded-xl font-bold transition-all',
+                userData.points >= 15 || getItemCount('apple') > 0
+                  ? 'bg-gradient-to-r from-orange-400 to-pink-500 text-white hover:scale-105'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              )}
+            >
+              🍎 喂食 (+15积分或使用苹果)
+            </button>
           </div>
-        )}
 
-        {/* 背包为空提示 */}
-        {Object.keys(userData.userItems || {}).length === 0 && (
-          <button
-            onClick={() => navigate('/shop')}
-            className="w-full bg-white rounded-2xl p-4 shadow-warm mb-6 flex items-center justify-center gap-3 hover:shadow-warm-lg transition-all"
-          >
-            <span className="text-3xl">🛒</span>
-            <div className="text-left">
-              <p className="font-bold text-gray-800">背包空空~</p>
-              <p className="text-sm text-gray-500">去商店兑换小零食喂你的小动物吧！</p>
+          <div className="bg-white rounded-2xl p-5 shadow-warm">
+            <div className="flex items-center gap-2 mb-3">
+              <Heart className="w-5 h-5 text-pink-500" />
+              <h3 className="font-bold text-gray-800">玩耍</h3>
             </div>
-          </button>
-        )}
+            <p className="text-sm text-gray-500 mb-3">使用玩具增加快乐值，获得经验</p>
+            <div className="flex flex-wrap gap-2">
+              {PET_ITEMS.toy.slice(0, 4).map((toy) => (
+                <button
+                  key={toy.id}
+                  onClick={() => handlePlay(toy.id)}
+                  disabled={getItemCount(toy.id) === 0}
+                  className={cn(
+                    'rounded-xl px-3 py-2 flex items-center gap-2 transition-all',
+                    getItemCount(toy.id) > 0
+                      ? 'bg-pink-50 hover:bg-pink-100'
+                      : 'bg-gray-50 opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <span className="text-xl">{toy.emoji}</span>
+                  <span className="text-sm font-medium text-gray-700">{toy.name}</span>
+                  <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">
+                    x{getItemCount(toy.id)}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => navigate('/shop')}
+              className="w-full mt-3 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-white hover:scale-105 transition-all"
+            >
+              🛒 去商店买玩具
+            </button>
+          </div>
+        </div>
 
-        {/* 宠物装饰 */}
         <div className="bg-gradient-to-r from-purple-100 to-pink-50 rounded-2xl p-4 shadow-warm mb-6">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-500" />
               宠物装扮
@@ -400,99 +584,184 @@ export function PetPage() {
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            {/* 装饰配件 */}
             <div className="bg-white rounded-xl p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">👑 装饰配件</span>
-                {userData.petDecoration.accessory && (
-                  <button
-                    onClick={() => unequipDecoration('accessory')}
-                    className="text-xs text-gray-500 hover:text-red-500"
-                  >
-                    卸下
-                  </button>
-                )}
+                <button 
+                  onClick={() => setShowAccessorySelector(true)}
+                  className="text-xs text-purple-600 hover:text-purple-700"
+                >
+                  更换
+                </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {userData.petDecoration.accessory ? (
+                {activePet?.accessory ? (
                   <div className="bg-purple-50 rounded-lg p-2 text-center">
-                    <span className="text-2xl">{findShopItemById(userData.petDecoration.accessory)?.emoji}</span>
-                    <div className="text-xs text-gray-600 mt-1">{findShopItemById(userData.petDecoration.accessory)?.name}</div>
+                    <span className="text-2xl">{findItemById(activePet.accessory)?.emoji}</span>
+                    <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.accessory)?.name}</div>
                   </div>
                 ) : (
                   <div className="text-gray-400 text-sm">暂无装饰</div>
                 )}
-                {Object.entries(userData.userItems || {})
-                  .filter(([itemId]) => SHOP_ITEMS.accessories?.some(item => item.id === itemId))
-                  .map(([itemId, count]) => {
-                    const item = SHOP_ITEMS.accessories.find(i => i.id === itemId);
-                    if (!item) return null;
-                    return (
-                      <button
-                        key={itemId}
-                        onClick={() => equipDecoration('accessory', itemId)}
-                        className={cn(
-                          'rounded-lg p-2 transition-all',
-                          userData.petDecoration.accessory === itemId
-                            ? 'bg-purple-200 ring-2 ring-purple-400'
-                            : 'bg-purple-50 hover:bg-purple-100'
-                        )}
-                      >
-                        <span className="text-2xl">{item.emoji}</span>
-                      </button>
-                    );
-                  })}
               </div>
             </div>
 
-            {/* 背景装饰 */}
             <div className="bg-white rounded-xl p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">🌸 背景装饰</span>
-                {userData.petDecoration.background && (
-                  <button
-                    onClick={() => unequipDecoration('background')}
-                    className="text-xs text-gray-500 hover:text-red-500"
-                  >
-                    卸下
-                  </button>
-                )}
+                <button 
+                  onClick={() => setShowBackgroundSelector(true)}
+                  className="text-xs text-purple-600 hover:text-purple-700"
+                >
+                  更换
+                </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {userData.petDecoration.background ? (
+                {activePet?.background ? (
                   <div className="bg-green-50 rounded-lg p-2 text-center">
-                    <span className="text-2xl">{findShopItemById(userData.petDecoration.background)?.emoji}</span>
-                    <div className="text-xs text-gray-600 mt-1">{findShopItemById(userData.petDecoration.background)?.name}</div>
+                    <span className="text-2xl">{findItemById(activePet.background)?.emoji}</span>
+                    <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.background)?.name}</div>
                   </div>
                 ) : (
                   <div className="text-gray-400 text-sm">暂无背景</div>
                 )}
-                {Object.entries(userData.userItems || {})
-                  .filter(([itemId]) => SHOP_ITEMS.nature?.some(item => item.id === itemId))
-                  .map(([itemId, count]) => {
-                    const item = SHOP_ITEMS.nature.find(i => i.id === itemId);
-                    if (!item) return null;
-                    return (
-                      <button
-                        key={itemId}
-                        onClick={() => equipDecoration('background', itemId)}
-                        className={cn(
-                          'rounded-lg p-2 transition-all',
-                          userData.petDecoration.background === itemId
-                            ? 'bg-green-200 ring-2 ring-green-400'
-                            : 'bg-green-50 hover:bg-green-100'
-                        )}
-                      >
-                        <span className="text-2xl">{item.emoji}</span>
-                      </button>
-                    );
-                  })}
               </div>
             </div>
           </div>
         </div>
 
-        {/* 快捷入口 */}
+        {/* 装饰配件选择器 */}
+        {showAccessorySelector && (
+          <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50" onClick={() => setShowAccessorySelector(false)}>
+            <div className="bg-white rounded-t-3xl w-full max-w-4xl max-h-[60vh] overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="text-xl font-bold">👑 选择装饰配件</h3>
+                <button onClick={() => setShowAccessorySelector(false)} className="text-gray-500 hover:text-gray-700 text-2xl">
+                  ✕
+                </button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[calc(60vh-80px)]">
+                <div className="mb-4">
+                  <button 
+                    onClick={() => {
+                      if (activePet) {
+                        setPetAccessory(activePet.id, null);
+                        setShowAccessorySelector(false);
+                      }
+                    }}
+                    className={cn(
+                      'w-full p-4 rounded-xl border-2 mb-4 transition-all',
+                      !activePet?.accessory 
+                        ? 'border-purple-500 bg-purple-50' 
+                        : 'border-gray-200 hover:border-purple-300'
+                    )}
+                  >
+                    <span className="text-2xl">❌</span>
+                    <div className="font-bold">不使用装饰</div>
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {PET_ITEMS.accessory.map((item: Item) => {
+                    const owned = getItemCount(item.id) > 0;
+                    const isActive = activePet?.accessory === item.id;
+                    
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (owned && activePet) {
+                            setPetAccessory(activePet.id, item.id);
+                            setShowAccessorySelector(false);
+                          }
+                        }}
+                        disabled={!owned}
+                        className={cn(
+                          'p-3 rounded-xl border-2 transition-all',
+                          isActive ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-300' : 'border-gray-200',
+                          owned ? 'hover:border-purple-400 hover:bg-purple-50' : 'opacity-50 cursor-not-allowed'
+                        )}
+                      >
+                        <div className="text-4xl mb-2">{item.emoji}</div>
+                        <div className="text-sm">{item.name}</div>
+                        {!owned && (
+                          <div className="text-xs text-red-500">未拥有</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 背景装饰选择器 */}
+        {showBackgroundSelector && (
+          <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50" onClick={() => setShowBackgroundSelector(false)}>
+            <div className="bg-white rounded-t-3xl w-full max-w-4xl max-h-[60vh] overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="text-xl font-bold">🌸 选择背景装饰</h3>
+                <button onClick={() => setShowBackgroundSelector(false)} className="text-gray-500 hover:text-gray-700 text-2xl">
+                  ✕
+                </button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[calc(60vh-80px)]">
+                <div className="mb-4">
+                  <button 
+                    onClick={() => {
+                      if (activePet) {
+                        setPetBackground(activePet.id, null);
+                        setShowBackgroundSelector(false);
+                      }
+                    }}
+                    className={cn(
+                      'w-full p-4 rounded-xl border-2 mb-4 transition-all',
+                      !activePet?.background 
+                        ? 'border-purple-500 bg-purple-50' 
+                        : 'border-gray-200 hover:border-purple-300'
+                    )}
+                  >
+                    <span className="text-2xl">❌</span>
+                    <div className="font-bold">不使用背景</div>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {PET_ITEMS.background.map((item: Item) => {
+                    const owned = getItemCount(item.id) > 0;
+                    const isActive = activePet?.background === item.id;
+                    
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (owned && activePet) {
+                            setPetBackground(activePet.id, item.id);
+                            setShowBackgroundSelector(false);
+                          }
+                        }}
+                        disabled={!owned}
+                        className={cn(
+                          'p-4 rounded-xl border-2 transition-all overflow-hidden',
+                          isActive ? 'border-purple-500 ring-2 ring-purple-300' : 'border-gray-200',
+                          owned ? 'hover:border-purple-400' : 'opacity-50 cursor-not-allowed'
+                        )}
+                      >
+                        <div className={cn('h-16 rounded-lg mb-2 flex items-center justify-center', item.bgStyle)}>
+                          <span className="text-3xl">{item.emoji}</span>
+                        </div>
+                        <div className="text-sm font-medium">{item.name}</div>
+                        {!owned && (
+                          <div className="text-xs text-red-500">未拥有</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => navigate('/')}
@@ -516,12 +785,11 @@ export function PetPage() {
             </div>
             <div className="text-left">
               <p className="font-bold text-gray-800">兑换商店</p>
-              <p className="text-xs text-purple-500">去看看有什么好东西</p>
+              <p className="text-xs text-purple-500">购买食物玩具</p>
             </div>
           </button>
         </div>
 
-        {/* 升级庆祝弹窗 */}
         {showLevelUp && levelUpData && (
           <PetModal
             isOpen={showLevelUp}
@@ -530,25 +798,21 @@ export function PetPage() {
               setLevelUpData(null);
             }}
             type="levelup"
-            petType={userData.adoptedPet || 'dog'}
+            petType={activePet?.type || 'dog'}
             newLevel={levelUpData.newLevel}
             previousLevel={levelUpData.previousLevel}
           />
         )}
 
-        {/* 喂养成功提示 */}
         {feedSuccess && (
-          <div className={cn(
-            'fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-lg animate-bounce',
-            lastFeedBad ? 'bg-red-500' : 'bg-green-500'
-          )}>
-            <span className="text-white">
-              {usedItemName && lastFeedBad
-                ? `${usedItemName} 这个对小动物有害！💔`
-                : usedItemName
-                  ? `${usedItemName} 喂养成功！+${lastFeedGrowth}成长值 🎉`
-                  : '🎉 喂养成功！'}
-            </span>
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce">
+            🎉 喂食成功！宠物吃饱了~
+          </div>
+        )}
+
+        {playSuccess && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-pink-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce">
+            🎮 玩耍开心！宠物很快乐~
           </div>
         )}
       </div>

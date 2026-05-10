@@ -4,7 +4,7 @@ import { Header } from '@/components/Header';
 import { GameHeader } from '@/components/ProgressBar';
 import { PetModal } from '@/components/PetModal';
 import { useUserData } from '@/hooks/useUserData';
-import { playCorrectSparkle, resumeAudioContext } from '@/lib/gameSfx';
+import { playCorrectSparkle, playButtonClick, resumeAudioContext } from '@/lib/gameSfx';
 import { shuffleArray, pickRandom } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { GRADE_3A, GRADE_3B, type Word } from '@/data/wordLearning';
@@ -39,6 +39,14 @@ const encouragementMessages = [
   '非常优秀！🏅'
 ];
 
+const perfectMessages = [
+  '完美！你是最棒的！🌟🌟🌟',
+  '太惊人了！全部正确！🏆',
+  '难以置信！你太聪明了！🧠',
+  '这就是实力！🎯',
+  '继续保持！你是词汇大师！👑'
+];
+
 export function ListeningPage() {
   const navigate = useNavigate();
   const { addPoints, userData } = useUserData();
@@ -53,6 +61,7 @@ export function ListeningPage() {
   const [isChecking, setIsChecking] = useState(false);
   const [moves, setMoves] = useState(0);
   const [encouragement, setEncouragement] = useState('');
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const initializeGame = useCallback(() => {
     const config = difficultyConfig[selectedDifficulty];
@@ -90,6 +99,7 @@ export function ListeningPage() {
     setGameOver(false);
     setShowModal(false);
     setEncouragement('');
+    setShowCelebration(false);
   }, [selectedDifficulty]);
 
   useEffect(() => {
@@ -97,10 +107,6 @@ export function ListeningPage() {
       initializeGame();
     }
   }, [gameStarted, initializeGame]);
-
-  const checkGameComplete = useCallback(() => {
-    return cards.every(card => card.isMatched);
-  }, [cards]);
 
   const handleCardClick = (clickedCard: Card) => {
     if (isChecking) return;
@@ -127,38 +133,37 @@ export function ListeningPage() {
         playCorrectSparkle();
         
         setTimeout(() => {
-          setCards(prev =>
-            prev.map(card => {
-              if (card.id === first.id || card.id === second.id) {
-                return { ...card, isMatched: true };
-              }
-              return card;
-            })
+          const updatedCards = cards.map(card =>
+            card.id === first.id || card.id === second.id
+              ? { ...card, isMatched: true }
+              : card
           );
+          setCards(updatedCards);
           setScore(prev => prev + 10);
           addPoints(10);
           setSelectedCards([]);
           setIsChecking(false);
 
-          if (checkGameComplete()) {
+          const allMatched = updatedCards.every(card => card.isMatched);
+          if (allMatched) {
+            setShowCelebration(true);
             setTimeout(() => {
               const bonusPoints = selectedDifficulty === 'easy' ? 30 : selectedDifficulty === 'medium' ? 50 : 80;
               addPoints(bonusPoints);
               setEncouragement(pickRandom(encouragementMessages, 1)[0]);
               setShowModal(true);
               setGameOver(true);
-            }, 500);
+            }, 1500);
           }
         }, 300);
       } else {
         setTimeout(() => {
           setCards(prev =>
-            prev.map(card => {
-              if (card.id === first.id || card.id === second.id) {
-                return { ...card, isFlipped: false };
-              }
-              return card;
-            })
+            prev.map(card =>
+              card.id === first.id || card.id === second.id
+                ? { ...card, isFlipped: false }
+                : card
+            )
           );
           setSelectedCards([]);
           setIsChecking(false);
@@ -188,7 +193,7 @@ export function ListeningPage() {
                 return (
                   <button
                     key={diff}
-                    onClick={() => setSelectedDifficulty(diff)}
+                    onClick={() => { playButtonClick(); setSelectedDifficulty(diff); }}
                     className={cn(
                       'w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4',
                       selectedDifficulty === diff
@@ -210,7 +215,7 @@ export function ListeningPage() {
             </div>
 
             <button
-              onClick={startGame}
+              onClick={() => { playButtonClick(); startGame(); }}
               className="w-full mt-6 py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-warm"
             >
               开始游戏
@@ -240,11 +245,11 @@ export function ListeningPage() {
               <p className="text-gray-600">步数：{moves} 步</p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 mb-6">
-              {['🌟', '⭐', '✨', '💫', '🌟', '⭐'].map((star, i) => (
+              {['🌟', '⭐', '✨', '💫', '🌟', '⭐', '🌟', '⭐'].map((star, i) => (
                 <span 
                   key={i} 
                   className="text-2xl animate-pulse"
-                  style={{ animationDelay: `${i * 0.1}s` }}
+                  style={{ animationDelay: `${i * 0.15}s` }}
                 >
                   {star}
                 </span>
@@ -252,13 +257,14 @@ export function ListeningPage() {
             </div>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => navigate('/games')}
+                onClick={() => { playButtonClick(); navigate('/games'); }}
                 className="w-full py-3 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600"
               >
                 返回游戏中心
               </button>
               <button
                 onClick={() => {
+                  playButtonClick();
                   setGameOver(false);
                   initializeGame();
                 }}
@@ -268,6 +274,7 @@ export function ListeningPage() {
               </button>
               <button
                 onClick={() => {
+                  playButtonClick();
                   setGameStarted(false);
                   setGameOver(false);
                 }}
@@ -302,10 +309,19 @@ export function ListeningPage() {
         />
 
         <div className="mt-4 bg-white rounded-2xl p-6 shadow-warm">
-          <div className="text-center mb-4">
+          <div className="flex items-center justify-between mb-4">
             <span className="inline-block bg-gray-100 px-3 py-1 rounded-full text-sm text-gray-600">
               {config.emoji} {config.label} · {config.size}×{config.size}
             </span>
+            <button
+              onClick={() => {
+                playButtonClick();
+                setGameStarted(false);
+              }}
+              className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-full text-sm hover:bg-gray-200 transition-colors"
+            >
+              更换难度
+            </button>
           </div>
           <div className="text-center mb-6">
             <p className="text-gray-600">点击卡片翻转，找到配对的中英文词汇</p>
@@ -315,7 +331,7 @@ export function ListeningPage() {
             {cards.map((card) => (
               <button
                 key={card.id}
-                onClick={() => handleCardClick(card)}
+                onClick={() => { playButtonClick(); handleCardClick(card); }}
                 disabled={card.isMatched || card.isFlipped || isChecking || selectedCards.length >= 2}
                 className={cn(
                   'aspect-square rounded-xl border-2 transition-all duration-300 transform',
@@ -350,7 +366,36 @@ export function ListeningPage() {
             已配对：{matchedCount} / {cards.length} | 步数：{moves}
           </div>
         </div>
+
+        <div className="mt-4 flex gap-3">
+          <button
+            onClick={() => navigate('/games')}
+            className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors"
+          >
+            返回游戏中心
+          </button>
+          <button
+            onClick={() => {
+              setGameStarted(false);
+            }}
+            className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors"
+          >
+            更换难度
+          </button>
+        </div>
       </div>
+
+      {showCelebration && !gameOver && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl text-center animate-bounce">
+            <div className="text-6xl mb-4">🎊</div>
+            <p className="text-2xl font-bold text-purple-600 mb-2">
+              {pickRandom(perfectMessages, 1)[0]}
+            </p>
+            <p className="text-gray-600">即将进入结算...</p>
+          </div>
+        </div>
+      )}
 
       <PetModal
         isOpen={showModal}

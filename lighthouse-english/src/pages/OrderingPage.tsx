@@ -6,7 +6,7 @@ import { SpeechButton } from '@/components/SpeechButton';
 import { PetModal } from '@/components/PetModal';
 import { ORDERING_QUESTIONS } from '@/data/questions';
 import { useUserData } from '@/hooks/useUserData';
-import { playCorrectSparkle, resumeAudioContext } from '@/lib/gameSfx';
+import { playCorrectSparkle, playButtonClick, resumeAudioContext } from '@/lib/gameSfx';
 import { normalizeOrderingWord, shuffleArray } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -129,13 +129,14 @@ export function OrderingPage() {
             </div>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => navigate('/games')}
+                onClick={() => { playButtonClick(); navigate('/games'); }}
                 className="w-full py-3 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600"
               >
                 返回游戏中心
               </button>
               <button
                 onClick={() => {
+                  playButtonClick();
                   setCurrentIndex(0);
                   setScore(0);
                   setGameOver(false);
@@ -193,21 +194,21 @@ export function OrderingPage() {
                       <span className="flex-1 font-medium">{sentence}</span>
                       <div className="flex gap-1">
                         <button
-                          onClick={() => moveSentence(index, 'up')}
+                          onClick={() => { playButtonClick(); moveSentence(index, 'up'); }}
                           disabled={index === 0 || showResult}
                           className="p-1 text-purple-500 hover:bg-purple-100 rounded disabled:opacity-30"
                         >
                           ↑
                         </button>
                         <button
-                          onClick={() => moveSentence(index, 'down')}
+                          onClick={() => { playButtonClick(); moveSentence(index, 'down'); }}
                           disabled={index === orderedSentences.length - 1 || showResult}
                           className="p-1 text-purple-500 hover:bg-purple-100 rounded disabled:opacity-30"
                         >
                           ↓
                         </button>
                         <button
-                          onClick={() => removeFromOrder(index)}
+                          onClick={() => { playButtonClick(); removeFromOrder(index); }}
                           disabled={showResult}
                           className="p-1 text-red-500 hover:bg-red-100 rounded disabled:opacity-30"
                         >
@@ -228,7 +229,7 @@ export function OrderingPage() {
               {availableSentences.map((sentence, index) => (
                 <button
                   key={index}
-                  onClick={() => addToOrder(sentence)}
+                  onClick={() => { playButtonClick(); addToOrder(sentence); }}
                   disabled={showResult}
                   className="px-4 py-2 bg-white border-2 border-gray-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-colors font-medium text-gray-700 disabled:opacity-50"
                 >
@@ -275,7 +276,7 @@ export function OrderingPage() {
             {showResult ? (
               isCorrect ? (
                 <button
-                  onClick={handleNext}
+                  onClick={() => { playButtonClick(); handleNext(); }}
                   className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-warm"
                 >
                   下一题 →
@@ -283,6 +284,7 @@ export function OrderingPage() {
               ) : (
                 <button
                   onClick={() => {
+                    playButtonClick();
                     setShowResult(false);
                     setIsCorrect(false);
                     setOrderedSentences([]);
@@ -299,14 +301,14 @@ export function OrderingPage() {
             ) : (
               <>
                 <button
-                  onClick={resetOrder}
+                  onClick={() => { playButtonClick(); resetOrder(); }}
                   disabled={showResult}
                   className="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 disabled:opacity-50"
                 >
                   重置
                 </button>
                 <button
-                  onClick={checkAnswer}
+                  onClick={() => { playButtonClick(); checkAnswer(); }}
                   disabled={orderedSentences.length !== currentQuestion.shuffledSentences.length}
                   className="flex-1 py-3 bg-purple-500 text-white font-bold rounded-xl hover:bg-purple-600 shadow-warm disabled:opacity-50 disabled:cursor-not-allowed"
                 >

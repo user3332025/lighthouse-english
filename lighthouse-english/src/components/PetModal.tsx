@@ -40,7 +40,7 @@ export function PetModal({
     switch (type) {
       case 'encourage':
         return {
-          emoji: pet.sad,
+          emoji: pet.hungry,
           message: getRandomEncouragement(),
           bgColor: 'bg-orange-100',
           borderColor: 'border-orange-300',

@@ -455,10 +455,10 @@ export const SENTENCE_QUESTIONS = [
   },
 ];
 
-// 对话练习数据 - 包含完整对话内容和理解练习题
+// 对话练习数据 - A问B答模式
 export const DIALOGUES_DATA = [
   {
-    id: 'greeting',
+    id: 'greeting1',
     title: '问候对话',
     icon: '👋',
     dialogues: [
@@ -470,13 +470,21 @@ export const DIALOGUES_DATA = [
     ],
     questions: [
       {
-        question: '小明早上见到老师说什么？',
-        options: ['Good morning!', 'Good afternoon!', 'Good evening!'],
+        speakerA: 'Good morning, teacher!',
+        options: [
+          'Good morning!',
+          'Good afternoon!',
+          'Good evening!',
+        ],
         answer: 0,
       },
       {
-        question: '老师问小明什么？',
-        options: ['How are you?', 'What is your name?', 'Where are you from?'],
+        speakerA: 'How are you today?',
+        options: [
+          'I am fine, thank you.',
+          'What is your name?',
+          'Where are you from?',
+        ],
         answer: 0,
       },
     ],
@@ -493,13 +501,21 @@ export const DIALOGUES_DATA = [
     ],
     questions: [
       {
-        question: '小红的名字是什么？',
-        options: ['Xiao Hong', 'Xiao Gang', 'Li Ming'],
+        speakerA: 'Hello! My name is Xiao Hong.',
+        options: [
+          'Hi! My name is Xiao Gang.',
+          'Goodbye!',
+          'Good morning!',
+        ],
         answer: 0,
       },
       {
-        question: '他们见面说什么？',
-        options: ['Nice to meet you!', 'Goodbye!', 'Good morning!'],
+        speakerA: 'Nice to meet you!',
+        options: [
+          'Nice to meet you too!',
+          'Thank you!',
+          'See you later!',
+        ],
         answer: 0,
       },
     ],
@@ -516,83 +532,84 @@ export const DIALOGUES_DATA = [
     ],
     questions: [
       {
-        question: '老师让学生做什么？',
-        options: ['Open books', 'Close books', 'Stand up'],
+        speakerA: 'Open your books, please.',
+        options: [
+          'Yes, teacher.',
+          'No, thank you.',
+          'I am busy.',
+        ],
         answer: 0,
       },
       {
-        question: '学生要读第几页？',
-        options: ['Page 15', 'Page 5', 'Page 25'],
-        answer: 0,
-      },
-    ],
-  },
-  {
-    id: 'lunch',
-    title: '午餐时间',
-    icon: '🍽️',
-    dialogues: [
-      { speaker: 'A', name: '妈妈', text: 'What would you like for lunch?' },
-      { speaker: 'B', name: '小明', text: 'I would like rice and chicken.' },
-      { speaker: 'A', name: '妈妈', text: 'OK! Enjoy your meal.' },
-      { speaker: 'B', name: '小明', text: 'Thank you, Mom!' },
-    ],
-    questions: [
-      {
-        question: '小明午餐想吃什么？',
-        options: ['Rice and chicken', 'Noodles', 'Bread'],
-        answer: 0,
-      },
-      {
-        question: '小明对妈妈说什么？',
-        options: ['Thank you!', 'Goodbye!', 'Hello!'],
+        speakerA: 'Read page 15.',
+        options: [
+          'OK!',
+          'I cannot read.',
+          'Page 10.',
+        ],
         answer: 0,
       },
     ],
   },
   {
-    id: 'shopping',
-    title: '购物对话',
-    icon: '🛒',
+    id: 'help',
+    title: '寻求帮助',
+    icon: '🤝',
     dialogues: [
-      { speaker: 'A', name: '店员', text: 'Can I help you?' },
-      { speaker: 'B', name: '顾客', text: 'Yes, I want a pencil.' },
-      { speaker: 'A', name: '店员', text: 'Here you are.' },
-      { speaker: 'B', name: '顾客', text: 'How much is it?' },
-      { speaker: 'A', name: '店员', text: 'It is two yuan.' },
+      { speaker: 'A', name: '同学', text: 'You can use my ruler.' },
+      { speaker: 'B', name: '小明', text: 'Thank you! You are kind.' },
     ],
     questions: [
       {
-        question: '顾客想买什么？',
-        options: ['A pencil', 'A book', 'A ruler'],
+        speakerA: 'You can use my ruler.',
+        options: [
+          'Thank you! You are kind.',
+          'I have ruler no.',
+          'No ruler.',
+          'Ruler not good.',
+        ],
         answer: 0,
       },
+    ],
+  },
+  {
+    id: 'thanks',
+    title: '表达感谢',
+    icon: '🙏',
+    dialogues: [
+      { speaker: 'A', name: '老师', text: 'Here is your book.' },
+      { speaker: 'B', name: '学生', text: 'Thank you very much!' },
+    ],
+    questions: [
       {
-        question: '铅笔多少钱？',
-        options: ['Two yuan', 'Three yuan', 'Five yuan'],
+        speakerA: 'Here is your book.',
+        options: [
+          'Thank you very much!',
+          'This is my book.',
+          'No thanks.',
+          "You're welcome.",
+        ],
         answer: 0,
       },
     ],
   },
   {
     id: 'weather',
-    title: '天气对话',
+    title: '谈论天气',
     icon: '☀️',
     dialogues: [
       { speaker: 'A', name: '爸爸', text: "How's the weather today?" },
       { speaker: 'B', name: '小明', text: 'It is sunny and warm.' },
-      { speaker: 'A', name: '爸爸', text: 'Great! Let us go to the park.' },
-      { speaker: 'B', name: '小明', text: 'Wonderful!' },
     ],
     questions: [
       {
-        question: '今天天气怎么样？',
-        options: ['Sunny', 'Rainy', 'Snowy'],
-        answer: 0,
-      },
-      {
-        question: '他们要去哪里？',
-        options: ['Park', 'School', 'Home'],
+        speakerA: "How's the weather today?",
+        options: [
+          'It is sunny and warm.',
+          'I like sunny day.',
+          'Yes, it is.',
+          'Weather is nice.',
+        ],
         answer: 0,
       },
     ],

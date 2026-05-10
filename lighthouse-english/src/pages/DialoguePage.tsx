@@ -198,36 +198,71 @@ export function DialoguePage() {
           <div className="quiz-question">对话理解练习</div>
           
           {currentDialogue.questions.map((q, i) => (
-            <div key={i} style={{ marginBottom: '20px' }}>
-              <div style={{ fontWeight: 500, marginBottom: '8px' }}>
-                {i + 1}. {q.question}
+            <div key={i} className="mb-6">
+              <div className="bg-pink-100 rounded-xl p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <span className="font-bold text-pink-600">A:</span>
+                  <span className="flex-1 text-gray-700">{q.speakerA}</span>
+                  <button
+                    onClick={() => speakEnglish(q.speakerA)}
+                    className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                  >
+                    🔊
+                  </button>
+                </div>
               </div>
-              <div className="quiz-options">
+              
+              <p className="text-center text-gray-500 text-sm mb-4">选择B最合适的回应:</p>
+              
+              <div className="space-y-3">
                 {q.options.map((opt, j) => {
                   const isSelected = selectedAnswers[i] === j;
                   const isCorrect = j === q.answer;
-                  const isWrongAnswered = wrongQuestions.has(i);
+                  const isWrong = wrongQuestions.has(i) && isSelected && !isCorrect;
                   
                   return (
                     <div
                       key={j}
                       className={cn(
-                        'quiz-option',
-                        isSelected && isCorrect && 'correct',
-                        isSelected && !isCorrect && 'wrong',
-                        !isSelected && isCorrect && answeredQuestions[i] && 'correct',
-                        wrongQuestions.has(i) && !isSelected && !isCorrect && 'opacity-50'
+                        'p-4 rounded-xl border-2 cursor-pointer transition-all',
+                        isSelected && isCorrect && 'border-green-500 bg-green-50',
+                        isWrong && 'border-pink-500 bg-pink-100',
+                        !isSelected && isCorrect && answeredQuestions[i] && 'border-green-500 bg-green-50',
+                        !isSelected && !answeredQuestions[i] && 'border-pink-200 hover:border-pink-400',
+                        answeredQuestions[i] && !isSelected && !isCorrect && 'opacity-50 border-pink-200'
                       )}
                       onClick={() => checkDialogueAnswer(i, j)}
                     >
-                      {opt}
+                      <div className="flex items-start gap-3">
+                        <span className={cn(
+                          'font-bold',
+                          isSelected && isCorrect ? 'text-green-600' : 'text-pink-600'
+                        )}>B:</span>
+                        <span className={cn(
+                          'flex-1',
+                          isSelected && isCorrect ? 'text-green-800' : 
+                          isWrong ? 'text-pink-800' : 'text-gray-700'
+                        )}>{opt}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            speakEnglish(opt);
+                          }}
+                          className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0',
+                            isSelected && isCorrect ? 'bg-green-500' : 'bg-orange-500'
+                          )}
+                        >
+                          🔊
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
               
               {wrongQuestions.has(i) && (
-                <div className="mt-3 flex items-center justify-center gap-3 bg-orange-100 rounded-xl p-3">
+                <div className="mt-4 flex items-center justify-center gap-3 bg-orange-100 rounded-xl p-4">
                   <span className="text-3xl">🐰</span>
                   <div className="flex-1">
                     <p className="font-bold text-orange-800">再想想！</p>

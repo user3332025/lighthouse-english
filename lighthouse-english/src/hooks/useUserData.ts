@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Pet, PetType, PetLevel, WrongQuestion, WrongQuestionInput, UserData, PetHome } from '@/types';
+import { Pet, PetType, PetLevel, WrongQuestion, WrongQuestionInput, UserData, PetHome, WordLearningRecord, MarkedWord, REVIEW_INTERVALS } from '@/types';
 import { findItemById, PET_EMOJIS } from '@/data/petItems';
 
 const STORAGE_KEY = 'lighthouse_english_data_v2';
@@ -30,7 +30,7 @@ export const PET_FACES: Record<PetType, { normal: string; happy: string; hungry:
 
 // 默认用户数据
 const defaultUserData: UserData = {
-  points: 100,
+  points: 0,
   wrongQuestions: [],
   gameHistory: {},
   voiceEnabled: true,
@@ -41,6 +41,7 @@ const defaultUserData: UserData = {
     pets: [],
     activePetId: null,
   },
+  completedQuizzes: { dialogue: 0, sentence: 0, listening: 0, matching: 0, ordering: 0 },
 };
 
 // 生成唯一ID
@@ -58,6 +59,28 @@ function createPet(type: PetType, name?: string): Pet {
     exp: 0,
     hunger: 50,
     happiness: 50,
+    lastFed: Date.now(),
+    lastPlayed: Date.now(),
+    adoptedAt: Date.now(),
+  };
+}
+
+// 创建测试用宠物（可指定任意等级，测试阶段专用）
+function createTestPet(type: PetType, level: number, name?: string): Pet {
+  const levelConfig = PET_LEVELS[Math.min(level, PET_LEVELS.length) - 1] || PET_LEVELS[0];
+  const expForLevel = (level: number) => {
+    const lvl = PET_LEVELS[Math.min(level, PET_LEVELS.length) - 1];
+    return lvl ? lvl.minExp + 10 : 10;
+  };
+
+  return {
+    id: generateId(),
+    type,
+    name: name || PET_NAMES[type],
+    level: levelConfig.level,
+    exp: expForLevel(levelConfig.level),
+    hunger: 80,
+    happiness: 80,
     lastFed: Date.now(),
     lastPlayed: Date.now(),
     adoptedAt: Date.now(),
@@ -106,9 +129,164 @@ export function useUserData() {
     return true;
   }, [userData.points, saveData]);
 
+  const setVoiceEnabled = useCallback((enabled: boolean) => {
+    setUserData(prev => saveData({ ...prev, voiceEnabled: enabled }));
+  }, [saveData]);
+
+  const getCurrentLevel = useCallback(() => {
+    const exp = userData.wordLearningRecords.reduce((sum, r) => sum + r.correctCount * 10, 0);
+    for (let i = PET_LEVELS.length - 1; i >= 0; i--) {
+      if (exp >= PET_LEVELS[i].minExp) {
+        return PET_LEVELS[i];
+      }
+    }
+    return PET_LEVELS[0];
+  }, [userData.wordLearningRecords]);
+
+  const getLevelProgress = useCallback(() => {
+    const current = getCurrentLevel();
+    const idx = PET_LEVELS.findIndex(p => p.level === current.level);
+    const next = PET_LEVELS[idx + 1];
+    if (!next) return 100;
+    const exp = userData.wordLearningRecords.reduce((sum, r) => sum + r.correctCount * 10, 0);
+    const progress = (exp - current.minExp) / (next.minExp - current.minExp) * 100;
+    return Math.min(100, Math.max(0, progress));
+  }, [getCurrentLevel, userData.wordLearningRecords]);
+
+  const getWordsForReview = useCallback(() => {
+    const now = Date.now();
+    return userData.wordLearningRecords.filter(r => {
+      if (r.correctCount >= 3) return false;
+      const daysSinceReview = (now - r.lastReview) / (1000 * 60 * 60 * 24);
+      return daysSinceReview >= r.intervalDays;
+    });
+  }, [userData.wordLearningRecords]);
+
+  const addWrongQuestion = useCallback((question: WrongQuestion) => {
+    setUserData(prev => {
+      const existing = prev.wrongQuestions.find(
+        q => q.questionId === question.questionId
+      );
+      if (existing) return prev;
+      return saveData({
+        ...prev,
+        wrongQuestions: [...prev.wrongQuestions, question],
+      });
+    });
+  }, [saveData]);
+
+  const markWrongQuestionCorrect = useCallback((questionId: string) => {
+    setUserData(prev => {
+      return saveData({
+        ...prev,
+        wrongQuestions: prev.wrongQuestions.filter(
+          q => q.questionId !== questionId
+        ),
+      });
+    });
+  }, [saveData]);
+
+  const markWordLearned = useCallback((word: string) => {
+    setUserData(prev => {
+      const existing = prev.wordLearningRecords.find(r => r.word === word);
+      if (existing) return prev;
+      return saveData({
+        ...prev,
+        wordLearningRecords: [
+          ...prev.wordLearningRecords,
+          {
+            word,
+            learnedAt: Date.now(),
+            correctCount: 0,
+            lastReview: Date.now(),
+            intervalDays: 1,
+          },
+        ],
+      });
+    });
+  }, [saveData]);
+
+  const recordWordReview = useCallback((word: string, correct: boolean) => {
+    setUserData(prev => {
+      const records = [...prev.wordLearningRecords];
+      const idx = records.findIndex(r => r.word === word);
+      if (idx === -1) {
+        return saveData({
+          ...prev,
+          wordLearningRecords: [
+            ...records,
+            {
+              word,
+              learnedAt: Date.now(),
+              correctCount: correct ? 1 : 0,
+              lastReview: Date.now(),
+              intervalDays: 1,
+            },
+          ],
+        });
+      }
+      const record = records[idx];
+      const newCount = correct ? record.correctCount + 1 : 0;
+      const newInterval = correct
+        ? Math.min(record.intervalDays * 2, 30)
+        : 1;
+      records[idx] = {
+        ...record,
+        correctCount: newCount,
+        lastReview: Date.now(),
+        intervalDays: newInterval,
+      };
+      return saveData({ ...prev, wordLearningRecords: records });
+    });
+  }, [saveData]);
+
+  const addMarkedWord = useCallback((word: MarkedWord) => {
+    setUserData(prev => {
+      const existing = prev.markedWords.find(
+        w => w.wordId === word.wordId
+      );
+      if (existing) return prev;
+      return saveData({
+        ...prev,
+        markedWords: [...prev.markedWords, word],
+      });
+    });
+  }, [saveData]);
+
+  const removeMarkedWord = useCallback((wordId: string) => {
+    setUserData(prev => {
+      return saveData({
+        ...prev,
+        markedWords: prev.markedWords.filter(
+          w => w.wordId !== wordId
+        ),
+      });
+    });
+  }, [saveData]);
+
+  const isWordMarked = useCallback((wordId: string) => {
+    return userData.markedWords.some(w => w.wordId === wordId);
+  }, [userData.markedWords]);
+
   // 领养宠物
   const adoptPet = useCallback((type: PetType, name?: string) => {
     const newPet = createPet(type, name);
+    setUserData(prev => {
+      const newPets = [...prev.petHome.pets, newPet];
+      return saveData({
+        ...prev,
+        petHome: {
+          pets: newPets,
+          activePetId: newPet.id,
+        },
+      });
+    });
+    return newPet;
+  }, [saveData]);
+
+  // 领养测试用宠物（可指定任意等级，测试阶段专用）
+  const adoptTestPet = useCallback((type: PetType, level: number = 1, name?: string) => {
+    const newPet = createTestPet(type, level, name);
     setUserData(prev => {
       const newPets = [...prev.petHome.pets, newPet];
       return saveData({
@@ -279,7 +457,19 @@ export function useUserData() {
     isLoaded,
     addPoints,
     spendPoints,
+    setVoiceEnabled,
+    getCurrentLevel,
+    getLevelProgress,
+    getWordsForReview,
+    addWrongQuestion,
+    markWrongQuestionCorrect,
+    markWordLearned,
+    recordWordReview,
+    addMarkedWord,
+    removeMarkedWord,
+    isWordMarked,
     adoptPet,
+    adoptTestPet,
     setActivePet,
     getActivePet,
     updatePet,

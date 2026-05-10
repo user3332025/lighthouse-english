@@ -145,7 +145,7 @@ function WordListView({
   const [volumeLevel, setVolumeLevel] = useState(0);
   const [isPlayingOwn, setIsPlayingOwn] = useState(false);
   const { speakEnglish, stop: stopSpeech, isSupported: speechSupported } = useSpeech();
-  const { userData, addMarkedWord, removeMarkedWord, isWordMarked } = useUserData();
+  const { userData, addMarkedWord, removeMarkedWord, isWordMarked, markWordLearned } = useUserData();
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const comparatorRef = useRef<AudioComparator | null>(null);
@@ -235,6 +235,7 @@ function WordListView({
   const markAsLearned = (word: string) => {
     if (!learnedWords.includes(word)) {
       setLearnedWords([...learnedWords, word]);
+      markWordLearned(word, textbookId, unit.id);
     }
   };
 
@@ -619,8 +620,8 @@ function WordListView({
             className={cn(
               'px-6 py-3 rounded-full transition-all flex items-center gap-2',
               isMarked
-                ? 'bg-yellow-400 text-white'
-                : 'bg-yellow-100 text-yellow-500 hover:bg-yellow-200'
+                ? 'bg-green-500 text-white shadow-lg scale-105'
+                : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
             )}
           >
             <Star className={cn('w-5 h-5', isMarked && 'fill-current')} />

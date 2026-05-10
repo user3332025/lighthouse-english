@@ -50,6 +50,11 @@ function selectFemaleVoice(): SpeechSynthesisVoice | undefined {
 
 export function useSpeech() {
   const [voicesLoaded, setVoicesLoaded] = useState(false);
+  const [voiceGender, setVoiceGender] = useState<'male' | 'female'>('female');
+
+  const toggleVoiceGender = useCallback(() => {
+    setVoiceGender(prev => prev === 'male' ? 'female' : 'male');
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -120,5 +125,7 @@ export function useSpeech() {
     stop,
     isSupported: typeof window !== 'undefined' && 'speechSynthesis' in window,
     voicesLoaded,
+    voiceGender,
+    toggleVoiceGender,
   };
 }

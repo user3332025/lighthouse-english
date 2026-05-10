@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { cn } from '@/lib/utils';
+import { playButtonClick } from '@/lib/gameSfx';
 
 const GAMES = [
   {
@@ -49,7 +50,7 @@ export function GamesPage() {
           {GAMES.map((game, index) => (
             <button
               key={game.id}
-              onClick={() => navigate(game.path)}
+              onClick={() => { playButtonClick(); navigate(game.path); }}
               className={cn(
                 'card-pop bg-white rounded-2xl p-5 shadow-warm',
                 'hover:shadow-warm-lg transition-all duration-300',

@@ -184,3 +184,27 @@ export function playCorrectSparkle() {
     /* ignore */
   }
 }
+
+/** 按键点击音效：短促清脆的「嗒」声，增强交互反馈 */
+export function playButtonClick() {
+  try {
+    const ac = getCtx();
+    scheduleSound(ac, (running) => {
+      const t0 = running.currentTime;
+      const o = running.createOscillator();
+      const g = running.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(880, t0);
+      o.frequency.exponentialRampToValueAtTime(1200, t0 + 0.02);
+      o.frequency.exponentialRampToValueAtTime(600, t0 + 0.05);
+      g.gain.setValueAtTime(0.18, t0);
+      g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+      o.connect(g).connect(running.destination);
+      o.start(t0);
+      o.stop(t0 + 0.1);
+    });
+  } catch {
+    /* ignore */
+  }
+}

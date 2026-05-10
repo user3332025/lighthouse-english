@@ -3,6 +3,7 @@ import { BookOpen, Sparkles } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { useUserData, PET_FACES } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
+import { playButtonClick } from '@/lib/gameSfx';
 
 const LEARNING_MODULES = [
   {
@@ -57,11 +58,12 @@ const LEARNING_MODULES = [
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { userData, getCurrentLevel, getLevelProgress, getWordsForReview } = useUserData();
+  const { userData, getCurrentLevel, getLevelProgress, getWordsForReview, PET_FACES } = useUserData();
   
   const pendingReviewCount = getWordsForReview().length;
 
-  const currentPet = userData.adoptedPet ? PET_FACES[userData.adoptedPet] : null;
+  const activePet = userData.petHome.pets.find(p => p.id === userData.petHome.activePetId);
+  const currentPet = activePet ? PET_FACES[activePet.type] : null;
   const currentLevel = getCurrentLevel();
   const levelProgress = getLevelProgress();
 
@@ -89,7 +91,7 @@ export function HomePage() {
             'bg-white rounded-2xl shadow-warm-lg p-4 cursor-pointer transition-transform hover:scale-[1.02]',
             !currentPet && 'border-2 border-dashed border-orange-300'
           )}
-          onClick={() => navigate('/pet')}
+          onClick={() => { playButtonClick(); navigate('/pet'); }}
         >
           {currentPet ? (
             <div className="flex items-center gap-4">
@@ -103,11 +105,11 @@ export function HomePage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-bold text-lg">你的小动物</span>
                   <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    Lv{userData.petLevel}
+                    Lv{activePet?.level || 1}
                   </span>
                 </div>
                 <p className="text-gray-600 text-sm mb-2">
-                  {currentLevel.name} · 成长值 {userData.petExp}/40
+                  {currentLevel.name} · 成长值 {activePet?.exp || 0}/40
                 </p>
                 {/* 成长进度条 */}
                 <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden">
@@ -141,7 +143,7 @@ export function HomePage() {
           {LEARNING_MODULES.map((module, index) => (
             <button
               key={module.id}
-              onClick={() => navigate(module.path)}
+              onClick={() => { playButtonClick(); navigate(module.path); }}
               className={cn(
                 'card-pop bg-white rounded-2xl p-5 shadow-warm',
                 'hover:shadow-warm-lg transition-all duration-300',

@@ -9,7 +9,7 @@ import { WrongAnswerEncourageOverlay } from '@/components/WrongAnswerEncourageOv
 import { MATCHING_QUESTIONS } from '@/data/questions';
 import { useUserData } from '@/hooks/useUserData';
 import { useSpeech } from '@/hooks/useSpeech';
-import { playCorrectSparkle, resumeAudioContext, unlockAudioFromButtonTap } from '@/lib/gameSfx';
+import { playCorrectSparkle, playButtonClick, resumeAudioContext, unlockAudioFromButtonTap } from '@/lib/gameSfx';
 import { shuffleArray, pickRandom } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -291,7 +291,7 @@ export function MatchingPage() {
               ].map(({ mode, icon, label }) => (
                 <button
                   key={mode}
-                  onClick={() => setSelectedMode(mode)}
+                  onClick={() => { playButtonClick(); setSelectedMode(mode); }}
                   className={cn(
                     'p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4',
                     selectedMode === mode
@@ -312,7 +312,7 @@ export function MatchingPage() {
               {(['Animals', 'Food', 'School'] as Topic[]).map(topic => (
                 <button
                   key={topic}
-                  onClick={() => setSelectedTopic(topic)}
+                  onClick={() => { playButtonClick(); setSelectedTopic(topic); }}
                   className={cn(
                     'p-4 rounded-xl border-2 text-center transition-all',
                     selectedTopic === topic
@@ -330,7 +330,7 @@ export function MatchingPage() {
 
             {/* 开始按钮 */}
             <button
-              onClick={startGame}
+              onClick={() => { playButtonClick(); startGame(); }}
               disabled={!selectedMode || !selectedTopic}
               className={cn(
                 'w-full py-4 rounded-xl font-bold text-white transition-all',
@@ -362,13 +362,14 @@ export function MatchingPage() {
             </div>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => navigate('/games')}
+                onClick={() => { playButtonClick(); navigate('/games'); }}
                 className="w-full py-3 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600"
               >
                 返回游戏中心
               </button>
               <button
                 onClick={() => {
+                  playButtonClick();
                   setGameStarted(false);
                   setSelectedMode(null);
                   setSelectedTopic(null);
@@ -460,7 +461,7 @@ export function MatchingPage() {
                   )}
                 >
                   <button
-                    onClick={() => handleSelectAnswer(option)}
+                    onClick={() => { playButtonClick(); handleSelectAnswer(option); }}
                     disabled={selectedAnswer !== null}
                     type="button"
                     className={cn(
@@ -495,7 +496,7 @@ export function MatchingPage() {
           {selectedAnswer !== null && isCorrect && (
             <div className="mt-6 text-center">
               <button
-                onClick={handleNext}
+                onClick={() => { playButtonClick(); handleNext(); }}
                 className="px-8 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 shadow-warm"
               >
                 下一题 →
