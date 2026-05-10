@@ -6,6 +6,14 @@ import { cn } from '@/lib/utils';
 
 const LEARNING_MODULES = [
   {
+    id: 'pronunciation',
+    title: '发音练习',
+    description: '录音评测发音',
+    icon: '🎤',
+    color: 'from-orange-400 to-pink-500',
+    path: '/kids-pronunciation',
+  },
+  {
     id: 'word',
     title: '单词学习',
     description: '按课本单元背单词',
@@ -30,6 +38,14 @@ const LEARNING_MODULES = [
     path: '/dialogue',
   },
   {
+    id: 'listening',
+    title: '听力练习',
+    description: '听音选图训练',
+    icon: '👂',
+    color: 'from-cyan-400 to-cyan-500',
+    path: '/listening',
+  },
+  {
     id: 'games',
     title: '游戏中心',
     description: '趣味英语游戏',
@@ -44,6 +60,14 @@ const LEARNING_MODULES = [
     icon: '🎁',
     color: 'from-yellow-400 to-yellow-500',
     path: '/shop',
+  },
+  {
+    id: 'review',
+    title: '今日复习',
+    description: '智能复习单词',
+    icon: '🎯',
+    color: 'from-purple-400 to-purple-500',
+    path: '/review',
   },
 ];
 
@@ -129,11 +153,6 @@ export function HomePage() {
 
       {/* 学习模块 */}
       <div className="max-w-4xl mx-auto px-4 mt-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <BookOpen className="w-6 h-6 text-primary-500" />
-          选择学习内容
-        </h2>
-
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {LEARNING_MODULES.map((module, index) => (
             <button
@@ -161,108 +180,6 @@ export function HomePage() {
               </div>
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* 智能复习 */}
-      <div className="max-w-4xl mx-auto px-4 mt-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <BookOpen className="w-6 h-6 text-primary-500" />
-          智能复习
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => navigate('/review')}
-            className={cn(
-              'card-pop bg-white rounded-2xl p-5 shadow-warm',
-              'hover:shadow-warm-lg transition-all duration-300',
-              'text-left group',
-              'bg-gradient-to-br from-purple-400 to-purple-500'
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-white/30 rounded-xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                🎯
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg text-white mb-1">今日复习</h3>
-                <p className="text-white/80 text-sm">
-                  {pendingReviewCount > 0 ? `${pendingReviewCount} 个单词待复习` : '暂无待复习单词'}
-                </p>
-              </div>
-            </div>
-          </button>
-          
-          <button
-            onClick={() => navigate('/review')}
-            className={cn(
-              'card-pop bg-white rounded-2xl p-5 shadow-warm',
-              'hover:shadow-warm-lg transition-all duration-300',
-              'text-left group',
-              userData.wrongQuestions.length > 0
-                ? 'bg-gradient-to-br from-red-400 to-red-500'
-                : 'bg-gray-100'
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className={cn(
-                'w-14 h-14 rounded-xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform',
-                userData.wrongQuestions.length > 0 ? 'bg-white/30' : 'bg-gray-200'
-              )}>
-                ❌
-              </div>
-              <div className="flex-1">
-                <h3 className={cn(
-                  'font-bold text-lg mb-1',
-                  userData.wrongQuestions.length > 0 ? 'text-white' : 'text-gray-400'
-                )}>错题本</h3>
-                <p className={cn(
-                  'text-sm',
-                  userData.wrongQuestions.length > 0 ? 'text-white/80' : 'text-gray-400'
-                )}>
-                  {userData.wrongQuestions.length > 0 
-                    ? `${userData.wrongQuestions.length} 道错题` 
-                    : '暂无错题'}
-                </p>
-              </div>
-            </div>
-          </button>
-          
-          <button
-            onClick={() => navigate('/review')}
-            className={cn(
-              'card-pop bg-white rounded-2xl p-5 shadow-warm',
-              'hover:shadow-warm-lg transition-all duration-300',
-              'text-left group',
-              userData.markedWords.length > 0
-                ? 'bg-gradient-to-br from-yellow-400 to-yellow-500'
-                : 'bg-gray-100'
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className={cn(
-                'w-14 h-14 rounded-xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform',
-                userData.markedWords.length > 0 ? 'bg-white/30' : 'bg-gray-200'
-              )}>
-                ⭐
-              </div>
-              <div className="flex-1">
-                <h3 className={cn(
-                  'font-bold text-lg mb-1',
-                  userData.markedWords.length > 0 ? 'text-white' : 'text-gray-400'
-                )}>重点词</h3>
-                <p className={cn(
-                  'text-sm',
-                  userData.markedWords.length > 0 ? 'text-white/80' : 'text-gray-400'
-                )}>
-                  {userData.markedWords.length > 0 
-                    ? `${userData.markedWords.length} 个单词` 
-                    : '暂无标记'}
-                </p>
-              </div>
-            </div>
-          </button>
         </div>
       </div>
 

@@ -35,79 +35,62 @@ export class AudioComparator {
                                 (window as any).webkitSpeechRecognition;
       
       if (!SpeechRecognition) {
+        console.log('浏览器不支持语音识别');
         resolve('');
         return;
       }
 
       const recognition = new SpeechRecognition();
-      recognition.continuous = this.recognitionConfig.continuous!;
-      recognition.interimResults = this.recognitionConfig.interimResults!;
-      recognition.maxAlternatives = this.recognitionConfig.maxAlternatives!;
-      recognition.lang = this.recognitionConfig.language!;
-      recognition.timeout = 5000;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 5;
+      recognition.lang = 'en-US';
+      recognition.timeout = 3000;
+
+      let recognizedText = '';
 
       recognition.onresult = (event: any) => {
-        let bestTranscript = '';
+        console.log('语音识别结果:', event);
+        let bestText = '';
         let highestConfidence = 0;
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           for (let j = 0; j < result.length; j++) {
-            const transcript = result[j].transcript;
+            const transcript = result[j].transcript.trim();
             const confidence = result[j].confidence || 0;
+            console.log(`识别文本: ${transcript}, 置信度: ${confidence}`);
             
             if (confidence > highestConfidence) {
               highestConfidence = confidence;
-              bestTranscript = transcript;
+              bestText = transcript;
             }
           }
         }
         
-        resolve(bestTranscript.trim());
+        recognizedText = bestText;
+        console.log('最终识别文本:', recognizedText);
+        resolve(recognizedText);
       };
 
       recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error);
+        console.warn('语音识别错误:', event.error);
         resolve('');
       };
 
       recognition.onend = () => {
-        // 识别结束但没有结果时也返回空字符串
+        console.log('语音识别结束');
+        if (!recognizedText) {
+          resolve('');
+        }
       };
 
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      fetch(audioUrl)
-        .then(response => response.arrayBuffer())
-        .then(arrayBuffer => {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          const audioContext = new AudioContextClass();
-          
-          audioContext.decodeAudioData(arrayBuffer)
-            .then((audioBuffer: AudioBuffer) => {
-              const source = audioContext.createBufferSource();
-              source.buffer = audioBuffer;
-              
-              const mediaStreamDestination = audioContext.createMediaStreamDestination();
-              source.connect(mediaStreamDestination);
-              
-              const stream = mediaStreamDestination.stream;
-              (recognition as any).stream = stream;
-              
-              recognition.start();
-              
-              source.start();
-            })
-            .catch(() => {
-              URL.revokeObjectURL(audioUrl);
-              audioContext.close();
-              resolve('');
-            });
-        })
-        .catch(() => {
-          URL.revokeObjectURL(audioUrl);
-          resolve('');
-        });
+      try {
+        recognition.start();
+      } catch (error) {
+        console.error('启动语音识别失败:', error);
+        resolve('');
+      }
     });
   }
 

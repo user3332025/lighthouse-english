@@ -18,6 +18,19 @@ type Card = {
   isMatched: boolean;
 };
 
+const encouragementMessages = [
+  '太厉害了！🎉',
+  '你真的很棒！🌟',
+  '完美通关！⭐',
+  '词汇达人！🏆',
+  '学习天才！🎓',
+  '继续加油！💪',
+  '太棒了！👏',
+  '你真厉害！✨',
+  '全对！🥇',
+  '非常优秀！🏅'
+];
+
 export function ListeningPage() {
   const navigate = useNavigate();
   const { addPoints, userData } = useUserData();
@@ -29,6 +42,7 @@ export function ListeningPage() {
   const [gameOver, setGameOver] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [moves, setMoves] = useState(0);
+  const [encouragement, setEncouragement] = useState('');
 
   const initializeGame = useCallback(() => {
     const allWords: Word[] = [];
@@ -64,6 +78,7 @@ export function ListeningPage() {
     setMoves(0);
     setGameOver(false);
     setShowModal(false);
+    setEncouragement('');
   }, []);
 
   useEffect(() => {
@@ -114,6 +129,7 @@ export function ListeningPage() {
           if (checkGameComplete()) {
             setTimeout(() => {
               addPoints(50);
+              setEncouragement(pickRandom(encouragementMessages, 1)[0]);
               setShowModal(true);
               setGameOver(true);
             }, 500);
@@ -145,6 +161,7 @@ export function ListeningPage() {
           <div className="bg-white rounded-2xl p-6 shadow-warm-lg text-center">
             <div className="text-6xl mb-4 animate-bounce">🎉</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">恭喜通关！</h2>
+            <p className="text-3xl font-bold text-purple-600 mb-4">{encouragement}</p>
             <p className="text-gray-600 mb-4">你成功配对了所有词汇！</p>
             <div className="bg-green-50 rounded-xl p-4 mb-4">
               <p className="text-3xl font-bold text-green-600">得分：{score}</p>
@@ -152,6 +169,17 @@ export function ListeningPage() {
             </div>
             <div className="bg-blue-50 rounded-xl p-4 mb-6">
               <p className="text-gray-600">步数：{moves} 步</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {['🌟', '⭐', '✨', '💫', '🌟', '⭐'].map((star, i) => (
+                <span 
+                  key={i} 
+                  className="text-2xl animate-pulse"
+                  style={{ animationDelay: `${i * 0.1}s` }}
+                >
+                  {star}
+                </span>
+              ))}
             </div>
             <div className="flex flex-col gap-3">
               <button

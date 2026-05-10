@@ -13,6 +13,7 @@ import { MatchingPage } from '@/pages/MatchingPage';
 import { OrderingPage } from '@/pages/OrderingPage';
 import { PetPage } from '@/pages/PetPage';
 import { ShopPage } from '@/pages/ShopPage';
+import { KidsPronunciationPractice } from '@/pages/KidsPronunciationPractice';
 
 /** 首次触摸/按键后解锁 AudioContext，并让 speechSynthesis 脱离挂起态（部分浏览器默认 suspended） */
 function GlobalAudioUnlock() {
@@ -58,6 +59,7 @@ function App() {
         <Route path="/games/ordering" element={<OrderingPage />} />
         <Route path="/pet" element={<PetPage />} />
         <Route path="/shop" element={<ShopPage />} />
+        <Route path="/kids-pronunciation" element={<KidsPronunciationPractice />} />
       </Routes>
     </HashRouter>
   );
