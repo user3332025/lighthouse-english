@@ -259,6 +259,17 @@ export function useUserData() {
     });
   }, [saveData]);
 
+  const unmarkWordLearned = useCallback((word: string, textbookId: string, unitId: number) => {
+    setUserData(prev => {
+      return saveData({
+        ...prev,
+        wordLearningRecords: prev.wordLearningRecords.filter((r) => 
+          !(r.word === word && r.textbookId === textbookId && r.unitId === unitId)
+        ),
+      });
+    });
+  }, [saveData]);
+
   const recordWordReview = useCallback((word: string, correct: boolean, textbookId?: string, unitId?: number) => {
     setUserData(prev => {
       const records = [...prev.wordLearningRecords];
@@ -606,6 +617,82 @@ export function useUserData() {
     });
   }, [saveData]);
 
+  // 测试模式：添加大量积分
+  const addTestPoints = (amount: number = 1000) => {
+    setUserData(prev => saveData({ ...prev, points: prev.points + amount }));
+  };
+
+  // 测试模式：添加所有物品到背包
+  const addAllTestItems = () => {
+    setUserData(prev => {
+      const newInventory = { ...prev.inventory };
+      // 添加所有食物和玩具
+      ['apple', 'banana', 'carrot', 'meat', 'fish', 'milk', 'cookie', 'cake', 
+       'ball', 'rope', 'bone', 'feather', 'yarn', 'bell', 'mouse', 'laser'].forEach(itemId => {
+        newInventory[itemId] = (newInventory[itemId] || 0) + 10;
+      });
+      return saveData({ ...prev, inventory: newInventory });
+    });
+  };
+
+  // 测试模式：解锁所有装饰品和背景
+  const unlockAllTestDecorations = () => {
+    setUserData(prev => saveData({
+      ...prev,
+      userDecorations: {
+        ownedAccessories: ['crown', 'bow', 'hat', 'glasses', 'necklace', 'flower', 'star', 'heart'],
+        ownedBackgrounds: ['meadow', 'sunset', 'night', 'rainbow', 'beach', 'mountain', 'garden', 'space'],
+      }
+    }));
+  };
+
+  // 测试模式：重置所有数据
+  const resetAllData = () => {
+    setUserData(defaultUserData);
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
+  // 测试模式：快速标记单词已学习
+  const markTestWordLearned = () => {
+    setUserData(prev => {
+      const newRecords = [...prev.wordLearningRecords];
+      // 添加一些测试单词记录
+      const testWords = [
+        { word: 'apple', textbookId: 'grade3a', unitId: 1 },
+        { word: 'banana', textbookId: 'grade3a', unitId: 1 },
+        { word: 'cat', textbookId: 'grade3a', unitId: 2 },
+        { word: 'dog', textbookId: 'grade3a', unitId: 2 },
+      ];
+      const now = Date.now();
+      testWords.forEach(testWord => {
+        const existing = newRecords.find(r => 
+          r.word === testWord.word && r.textbookId === testWord.textbookId && r.unitId === testWord.unitId
+        );
+        if (!existing) {
+          newRecords.push({
+            ...testWord,
+            learnedAt: now,
+            nextReviewAt: now,
+            reviewCount: 0,
+            correctCount: 5,
+            wrongCount: 0,
+            currentIntervalIndex: REVIEW_INTERVALS.length - 1,
+            isMastered: true,
+          });
+        }
+      });
+      return saveData({ ...prev, wordLearningRecords: newRecords });
+    });
+  };
+
+  // 测试模式：给当前宠物添加经验升级
+  const addTestPetExp = (amount: number = 500) => {
+    const activePet = getActivePet();
+    if (activePet) {
+      updatePet(activePet.id, { exp: activePet.exp + amount });
+    }
+  };
+
   return {
     userData,
     isLoaded,
@@ -618,6 +705,7 @@ export function useUserData() {
     addWrongQuestion,
     markWrongQuestionCorrect,
     markWordLearned,
+    unmarkWordLearned,
     recordWordReview,
     addMarkedWord,
     removeMarkedWord,
@@ -637,6 +725,13 @@ export function useUserData() {
     setPetAccessory,
     setPetBackground,
     removePet,
+    // 测试模式功能
+    addTestPoints,
+    addAllTestItems,
+    unlockAllTestDecorations,
+    resetAllData,
+    markTestWordLearned,
+    addTestPetExp,
     PET_LEVELS,
     PET_EMOJIS,
     PET_NAMES,

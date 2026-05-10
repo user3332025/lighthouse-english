@@ -147,7 +147,14 @@ function WordListView({
   const [isMarkedLocal, setIsMarkedLocal] = useState<boolean | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); // 添加一个强制更新的状态
   const { speakEnglish, stop: stopSpeech, isSupported: speechSupported } = useSpeech();
-  const { userData, addMarkedWord, removeMarkedWord, isWordMarked, markWordLearned } = useUserData();
+  const { 
+    userData, 
+    addMarkedWord, 
+    removeMarkedWord, 
+    isWordMarked, 
+    markWordLearned, 
+    unmarkWordLearned 
+  } = useUserData();
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const comparatorRef = useRef<AudioComparator | null>(null);
@@ -161,6 +168,14 @@ function WordListView({
   }, [currentWord.word, textbookId, unit.id, isWordMarked, currentIndex, forceUpdate]);
   
   const isMarked = isMarkedLocal ?? isWordMarked(currentWord.word, textbookId, unit.id);
+
+  // 从用户数据中初始化已学习的单词
+  useEffect(() => {
+    const learnedWordsFromStorage = userData.wordLearningRecords
+      .filter(r => r.textbookId === textbookId && r.unitId === unit.id)
+      .map(r => r.word);
+    setLearnedWords(learnedWordsFromStorage);
+  }, [userData.wordLearningRecords, textbookId, unit.id]);
 
   useEffect(() => {
     recorderRef.current = new AudioRecorder({
@@ -246,11 +261,13 @@ function WordListView({
     if (learnedWords.includes(word)) {
       // 取消标记为已学
       setLearnedWords(learnedWords.filter(w => w !== word));
+      unmarkWordLearned(word, textbookId, unit.id);
     } else {
       // 标记为已学
       setLearnedWords([...learnedWords, word]);
       markWordLearned(word, textbookId, unit.id);
     }
+    setForceUpdate(prev => prev + 1);
   };
 
   const nextWord = () => {

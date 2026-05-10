@@ -5,7 +5,7 @@ import { useUserData } from '@/hooks/useUserData';
 import { useSpeech } from '@/hooks/useSpeech';
 import { DIALOGUES_DATA } from '@/data/questions';
 import { cn } from '@/lib/utils';
-import { playCorrectSparkle, playWrongPop, playButtonClick } from '@/lib/gameSfx';
+import { playCorrectSparkle, playWrongPop, playButtonClick, resumeAudioContext } from '@/lib/gameSfx';
 
 type Mode = 'dialogue' | 'practice';
 
@@ -24,6 +24,7 @@ export function DialoguePage() {
   const currentDialogue = DIALOGUES_DATA[currentDialogueIndex];
 
   const prevDialogue = () => {
+    resumeAudioContext();
     playButtonClick();
     setCurrentDialogueIndex(prev => 
       prev > 0 ? prev - 1 : DIALOGUES_DATA.length - 1
@@ -32,6 +33,7 @@ export function DialoguePage() {
   };
 
   const nextDialogue = () => {
+    resumeAudioContext();
     playButtonClick();
     setCurrentDialogueIndex(prev => 
       prev < DIALOGUES_DATA.length - 1 ? prev + 1 : 0
@@ -40,6 +42,7 @@ export function DialoguePage() {
   };
 
   const startPractice = () => {
+    resumeAudioContext();
     playButtonClick();
     setMode('practice');
     setAnsweredQuestions(new Array(currentDialogue.questions.length).fill(false));
@@ -48,6 +51,7 @@ export function DialoguePage() {
   };
 
   const resetPractice = () => {
+    resumeAudioContext();
     playButtonClick();
     setMode('dialogue');
     setAnsweredQuestions([]);
@@ -58,6 +62,7 @@ export function DialoguePage() {
   const checkDialogueAnswer = (questionIndex: number, selected: number) => {
     if (answeredQuestions[questionIndex] && !wrongQuestions.has(questionIndex)) return;
     
+    resumeAudioContext();
     playButtonClick();
 
     const question = currentDialogue.questions[questionIndex];
@@ -77,6 +82,7 @@ export function DialoguePage() {
       setWrongQuestions(newWrong);
       
       addPoints(5);
+      resumeAudioContext();
       playCorrectSparkle();
     } else {
       const newWrong = new Set(wrongQuestions);
@@ -92,11 +98,13 @@ export function DialoguePage() {
           ...question 
         },
       });
+      resumeAudioContext();
       playWrongPop();
     }
   };
 
   const retryQuestion = (questionIndex: number) => {
+    resumeAudioContext();
     playButtonClick();
     const newSelected = [...selectedAnswers];
     newSelected[questionIndex] = null;
@@ -108,6 +116,7 @@ export function DialoguePage() {
   };
 
   const finishDialoguePractice = () => {
+    resumeAudioContext();
     playButtonClick();
     const d = userData;
     if (!d.completedQuizzes) {
@@ -119,6 +128,7 @@ export function DialoguePage() {
   };
 
   const closeModal = () => {
+    resumeAudioContext();
     playButtonClick();
     setShowModal(false);
     resetPractice();

@@ -143,7 +143,7 @@ export function HomePage() {
           {LEARNING_MODULES.map((module, index) => (
             <button
               key={module.id}
-              onClick={() => { playButtonClick(); navigate(module.path); }}
+              onClick={() => navigate(module.path)}
               className={cn(
                 'card-pop bg-white rounded-2xl p-5 shadow-warm',
                 'hover:shadow-warm-lg transition-all duration-300',

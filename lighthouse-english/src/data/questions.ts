@@ -1800,11 +1800,9 @@ export const MATCHING_QUESTIONS = {
     { word: 'pen', image: '✒️' },
     { word: 'pencil', image: '✏️' },
     { word: 'ruler', image: '📏' },
-    { word: 'eraser', image: '🧽' },
+    { word: 'school', image: '🏫' },
     { word: 'bag', image: '🎒' },
-    { word: 'desk', image: '🗂️' },
-    { word: 'chair', image: '🪑' },
-    { word: 'blackboard', image: '📋' },
+    { word: 'paper', image: '📄' },
   ],
 };
 

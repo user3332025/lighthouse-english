@@ -63,6 +63,13 @@ export function PetPage() {
     useItem,
     setPetAccessory,
     setPetBackground,
+    // 测试模式功能
+    addTestPoints,
+    addAllTestItems,
+    unlockAllTestDecorations,
+    resetAllData,
+    markTestWordLearned,
+    addTestPetExp,
   } = useUserData();
   
   const [showAccessorySelector, setShowAccessorySelector] = useState(false);
@@ -230,8 +237,20 @@ export function PetPage() {
 
   if (!userData.petHome.pets.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary-50 via-orange-50 to-amber-100 pb-8">
-        <Header showBack title="小动物养成" />
+      <div className={cn(
+        "min-h-screen pb-8 transition-all duration-300",
+        isTestMode 
+          ? "bg-gradient-to-b from-blue-50 via-purple-50 to-pink-100" 
+          : "bg-gradient-to-b from-primary-50 via-orange-50 to-amber-100"
+      )}>
+        {/* 测试模式提示条 */}
+        {isTestMode && (
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white py-2 px-4 text-center text-sm font-medium animate-pulse">
+            🧪 测试模式已开启 - 此模式用于功能测试，数据可能会被重置
+          </div>
+        )}
+        
+        <Header showBack title={isTestMode ? "🏠 宠物小窝 (测试模式)" : "宠物小窝"} />
 
         <div className="max-w-4xl mx-auto px-4 mt-4">
           <div className="bg-gradient-to-r from-pink-400 via-orange-400 to-yellow-400 rounded-3xl p-8 text-white text-center mb-8 shadow-warm-lg">
@@ -333,8 +352,20 @@ export function PetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 via-orange-50 to-amber-100 pb-8">
-      <Header showBack title="宠物小窝" />
+    <div className={cn(
+      "min-h-screen pb-8 transition-all duration-300",
+      isTestMode 
+        ? "bg-gradient-to-b from-blue-50 via-purple-50 to-pink-100" 
+        : "bg-gradient-to-b from-primary-50 via-orange-50 to-amber-100"
+    )}>
+      {/* 测试模式提示条 */}
+      {isTestMode && (
+        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white py-2 px-4 text-center text-sm font-medium animate-pulse">
+          🧪 测试模式已开启 - 此模式用于功能测试，数据可能会被重置
+        </div>
+      )}
+      
+      <Header showBack title={isTestMode ? "🐾 宠物小窝 (测试模式)" : "宠物小窝"} />
 
       <div className="max-w-4xl mx-auto px-4 mt-4">
         <div className="bg-white rounded-3xl shadow-warm-lg overflow-hidden mb-6">
@@ -846,13 +877,30 @@ export function PetPage() {
         </div>
 
         {/* 测试模式入口 */}
-        <div className="bg-blue-50 rounded-2xl p-4 shadow-warm">
+        <div className={cn(
+          "rounded-2xl p-4 shadow-warm border-2 transition-all duration-300",
+          isTestMode 
+            ? "bg-gradient-to-br from-blue-50 to-purple-50 border-blue-400 ring-4 ring-blue-100" 
+            : "bg-blue-50 border-transparent hover:border-blue-200"
+        )}>
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🧪</span>
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all",
+                isTestMode 
+                  ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse" 
+                  : "bg-blue-100 text-blue-600"
+              )}>
+                🧪
+              </div>
               <div>
-                <h3 className="font-bold text-gray-800">测试模式</h3>
-                <p className="text-xs text-gray-500">领养新宠物测试不同等级</p>
+                <h3 className={cn(
+                  "font-bold text-lg",
+                  isTestMode ? "text-blue-800" : "text-gray-800"
+                )}>
+                  测试模式 {isTestMode && "✅ 已开启"}
+                </h3>
+                <p className="text-xs text-gray-500">快速测试各种功能</p>
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -862,45 +910,120 @@ export function PetPage() {
                 onChange={(e) => setIsTestMode(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+              <div className={cn(
+                "w-14 h-7 rounded-full peer-focus:outline-none peer-focus:ring-4 transition-all duration-300",
+                isTestMode 
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600 peer-focus:ring-purple-200" 
+                  : "bg-gray-200 peer-focus:ring-blue-200"
+              )}></div>
+              <div className={cn(
+                "absolute top-0.5 left-0.5 bg-white rounded-full h-6 w-6 transition-all duration-300 shadow-md",
+                isTestMode ? "transform translate-x-7" : ""
+              )}></div>
             </label>
           </div>
 
           {isTestMode && (
-            <div className="space-y-3 mt-4 pt-4 border-t border-blue-100">
-              <div className="text-sm font-medium text-gray-700">选择测试等级：</div>
-              <div className="grid grid-cols-5 gap-2">
-                {PET_LEVELS.map((level) => (
-                  <button
-                    key={level.level}
-                    onClick={() => setTestPetLevel(level.level)}
-                    className={cn(
-                      'p-2 rounded-xl text-center transition-all',
-                      testPetLevel === level.level
-                        ? 'bg-blue-500 text-white ring-2 ring-blue-300 ring-offset-2'
-                        : 'bg-white hover:bg-blue-100 text-gray-700'
-                    )}
-                  >
-                    <div className="text-xl mb-1">{level.appearance}</div>
-                    <div className="text-xs font-bold">Lv{level.level}</div>
-                  </button>
-                ))}
+            <div className="space-y-4 mt-4 pt-4 border-t border-blue-100">
+              {/* 测试功能区域 */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => addTestPoints(1000)}
+                  className="p-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-medium hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">💰</span>
+                  <span>+1000 积分</span>
+                </button>
+                <button
+                  onClick={() => addTestPoints(5000)}
+                  className="p-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">💎</span>
+                  <span>+5000 积分</span>
+                </button>
+                <button
+                  onClick={addAllTestItems}
+                  className="p-3 bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-xl font-medium hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">🎒</span>
+                  <span>获得所有物品</span>
+                </button>
+                <button
+                  onClick={unlockAllTestDecorations}
+                  className="p-3 bg-gradient-to-r from-purple-400 to-pink-500 text-white rounded-xl font-medium hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">👑</span>
+                  <span>解锁所有装饰</span>
+                </button>
+                <button
+                  onClick={() => addTestPetExp(500)}
+                  className="p-3 bg-gradient-to-r from-blue-400 to-indigo-500 text-white rounded-xl font-medium hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">⭐</span>
+                  <span>+500 宠物经验</span>
+                </button>
+                <button
+                  onClick={markTestWordLearned}
+                  className="p-3 bg-gradient-to-r from-cyan-400 to-blue-500 text-white rounded-xl font-medium hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">📚</span>
+                  <span>添加测试单词</span>
+                </button>
               </div>
-              <div className="text-xs text-blue-600">
-                当前：Lv{testPetLevel} {PET_LEVELS.find(l => l.level === testPetLevel)?.name}
+
+              {/* 宠物领养测试 */}
+              <div className="pt-3 border-t border-blue-100">
+                <div className="text-sm font-medium text-gray-700 mb-3">领养测试宠物：</div>
+                <div className="grid grid-cols-5 gap-2 mb-3">
+                  {PET_LEVELS.map((level) => (
+                    <button
+                      key={level.level}
+                      onClick={() => setTestPetLevel(level.level)}
+                      className={cn(
+                        'p-2 rounded-xl text-center transition-all',
+                        testPetLevel === level.level
+                          ? 'bg-blue-500 text-white ring-2 ring-blue-300 ring-offset-2'
+                          : 'bg-white hover:bg-blue-100 text-gray-700'
+                      )}
+                    >
+                      <div className="text-xl mb-1">{level.appearance}</div>
+                      <div className="text-xs font-bold">Lv{level.level}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-blue-600 mb-3">
+                  当前等级：Lv{testPetLevel} {PET_LEVELS.find(l => l.level === testPetLevel)?.name}
+                </div>
+                <button
+                  onClick={() => {
+                    if (userData.petHome.pets.length > 0) {
+                      const confirm = window.confirm(`确定要领养新的 Lv${testPetLevel} 宠物吗？当前有 ${userData.petHome.pets.length} 只宠物。`);
+                      if (!confirm) return;
+                    }
+                    navigate('/pet');
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold hover:scale-105 transition-all"
+                >
+                  🐾 领养 Lv{testPetLevel} 宠物
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  if (userData.petHome.pets.length > 0) {
-                    const confirm = window.confirm(`确定要领养新的 Lv${testPetLevel} 宠物吗？当前有 ${userData.petHome.pets.length} 只宠物。`);
-                    if (!confirm) return;
-                  }
-                  navigate('/pet');
-                }}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold hover:scale-105 transition-all"
-              >
-                🐾 前往领养 Lv{testPetLevel} 宠物
-              </button>
+
+              {/* 危险操作 */}
+              <div className="pt-3 border-t border-blue-100">
+                <div className="text-sm font-medium text-red-600 mb-2">⚠️ 危险操作：</div>
+                <button
+                  onClick={() => {
+                    const confirm = window.confirm('确定要重置所有数据吗？这个操作不可撤销！');
+                    if (confirm) {
+                      resetAllData();
+                      window.location.reload();
+                    }
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-bold hover:scale-105 transition-all"
+                >
+                  🗑️ 重置所有数据
+                </button>
+              </div>
             </div>
           )}
         </div>
