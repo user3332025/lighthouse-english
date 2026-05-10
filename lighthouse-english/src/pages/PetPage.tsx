@@ -1,0 +1,394 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Star } from 'lucide-react';
+import { Header } from '@/components/Header';
+import { PetModal } from '@/components/PetModal';
+import { useUserData, PET_FACES, PET_LEVELS, getPetStageEmoji } from '@/hooks/useUserData';
+import { cn } from '@/lib/utils';
+import { PetType } from '@/types';
+import { SHOP_ITEMS, type ShopItem } from '@/pages/ShopPage';
+
+const PETS: { type: PetType; name: string; emoji: string }[] = [
+  { type: 'dog', name: '小狗狗', emoji: '🐶' },
+  { type: 'cat', name: '小猫咪', emoji: '🐱' },
+  { type: 'rabbit', name: '小兔子', emoji: '🐰' },
+  { type: 'bear', name: '小熊', emoji: '🐻' },
+  { type: 'fox', name: '小狐狸', emoji: '🦊' },
+];
+
+function findShopItemById(id: string): ShopItem | undefined {
+  for (const list of Object.values(SHOP_ITEMS)) {
+    const hit = list.find((i) => i.id === id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+export function PetPage() {
+  const navigate = useNavigate();
+  const {
+    userData,
+    adoptPet,
+    feedPet,
+    consumeItem,
+    getNextLevel,
+    getLevelProgress,
+  } = useUserData();
+
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpData, setLevelUpData] = useState<{ newLevel: number; previousLevel: number } | null>(null);
+  const [feedSuccess, setFeedSuccess] = useState(false);
+  const [usedItemName, setUsedItemName] = useState<string | null>(null);
+
+  const nextLevel = getNextLevel();
+  const levelProgress = getLevelProgress();
+
+  const handleAdopt = (petType: PetType) => {
+    adoptPet(petType);
+  };
+
+  const handleFeed = () => {
+    if (userData.points < 30) {
+      alert('积分不足！需要 30 积分来喂养小动物');
+      return;
+    }
+
+    const result = feedPet();
+    if (result.success) {
+      setFeedSuccess(true);
+      setTimeout(() => setFeedSuccess(false), 1000);
+
+      if (result.leveledUp && result.newLevel) {
+        setLevelUpData({
+          newLevel: result.newLevel,
+          previousLevel: Math.max(1, result.newLevel - 1),
+        });
+        setTimeout(() => {
+          setShowLevelUp(true);
+        }, 1200);
+      }
+    }
+  };
+
+  const petFace = userData.adoptedPet ? PET_FACES[userData.adoptedPet] : null;
+  const stageEmoji =
+    userData.adoptedPet ? getPetStageEmoji(userData.adoptedPet, userData.petLevel) : '🐾';
+  const mainPetEmoji = feedSuccess ? (petFace?.eating ?? stageEmoji) : stageEmoji;
+
+  // 未领养状态 - 选择小动物
+  if (!userData.adoptedPet) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
+        <Header showBack title="小动物养成" />
+
+        <div className="max-w-4xl mx-auto px-4 mt-4">
+          {/* 欢迎卡片 */}
+          <div className="bg-gradient-to-r from-pink-400 to-orange-400 rounded-2xl p-6 text-white text-center mb-6">
+            <div className="text-5xl mb-3">🐣</div>
+            <h2 className="text-xl font-bold mb-2">选择你的小伙伴！</h2>
+            <p className="text-white/80">领养一只小动物，和它一起学英语吧！</p>
+          </div>
+
+          {/* 小动物列表 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PETS.map((pet) => (
+              <button
+                key={pet.type}
+                onClick={() => handleAdopt(pet.type)}
+                className="bg-white rounded-2xl p-6 shadow-warm hover:shadow-warm-lg transition-all hover:scale-105 text-center"
+              >
+                <div className="text-7xl mb-3">{pet.emoji}</div>
+                <h3 className="font-bold text-lg text-gray-800">{pet.name}</h3>
+                <p className="text-sm text-gray-500 mt-1">点击领养</p>
+              </button>
+            ))}
+          </div>
+
+          {/* 积分提示 */}
+          <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-orange-700">
+              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+              <span className="font-medium">
+                你有 {userData.points} 积分
+              </span>
+            </div>
+            <p className="text-sm text-orange-600 mt-2">
+              💡 答题可以获得积分，用积分喂养小动物让它成长！
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 已领养状态 - 喂养和升级
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
+      <Header showBack title="小动物养成" />
+
+      <div className="max-w-4xl mx-auto px-4 mt-4">
+        {/* 小动物卡片 */}
+        <div className="bg-white rounded-2xl shadow-warm-lg overflow-hidden mb-6">
+          {/* 顶部背景：随等级变换色调 */}
+          <div
+            className={cn(
+              'h-36 relative transition-all duration-700',
+              userData.petLevel <= 1 && 'bg-gradient-to-r from-amber-300 to-orange-400',
+              userData.petLevel === 2 && 'bg-gradient-to-r from-orange-400 to-pink-400',
+              userData.petLevel === 3 && 'bg-gradient-to-r from-pink-400 to-purple-400',
+              userData.petLevel === 4 && 'bg-gradient-to-r from-purple-400 to-indigo-500',
+              userData.petLevel >= 5 && 'bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500'
+            )}
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_55%)] pointer-events-none" />
+            <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex flex-col items-center">
+              <div
+                className={cn(
+                  'rounded-full bg-white flex items-center justify-center shadow-lg transition-all duration-500 border-4',
+                  userData.petLevel === 1 && 'w-24 h-24 text-5xl border-amber-200',
+                  userData.petLevel === 2 && 'w-28 h-28 text-6xl border-orange-300',
+                  userData.petLevel === 3 && 'w-32 h-32 text-6xl border-pink-300',
+                  userData.petLevel === 4 && 'w-36 h-36 text-7xl border-purple-300 pet-aura-soft',
+                  userData.petLevel >= 5 && 'w-40 h-40 text-7xl sm:text-8xl border-amber-400 pet-aura-strong',
+                  feedSuccess && 'animate-bounce scale-105'
+                )}
+              >
+                <span className="leading-none select-none" title={`当前形态 Lv${userData.petLevel}`}>
+                  {mainPetEmoji}
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-bold text-white/95 drop-shadow-md bg-black/20 px-3 py-1 rounded-full">
+                当前形态 · Lv{userData.petLevel} {PET_LEVELS.find((l) => l.level === userData.petLevel)?.name}
+              </p>
+            </div>
+          </div>
+
+          {/* 信息区域 */}
+          <div className="pt-20 pb-6 px-6 text-center">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex flex-wrap items-center justify-center gap-2">
+              <span>我的小伙伴</span>
+              <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm px-3 py-1 rounded-full shadow">
+                Lv{userData.petLevel}
+                <span className="opacity-90 font-normal">
+                  {PET_LEVELS.find((l) => l.level === userData.petLevel)?.name}
+                </span>
+              </span>
+            </h2>
+            <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
+              升级后上方头像会变成新的样子，背景颜色也会变化哦！
+            </p>
+
+            {/* 成长进度 */}
+            <div className="mt-4 max-w-xs mx-auto">
+              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                <span>成长值</span>
+                <span>{userData.petExp} / {nextLevel ? nextLevel.minExp : 40}</span>
+              </div>
+              <div className="w-full h-4 bg-orange-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-500"
+                  style={{ width: `${levelProgress}%` }}
+                />
+              </div>
+              {nextLevel && (
+                <p className="text-xs text-gray-500 mt-1">
+                  再 {nextLevel.minExp - userData.petExp} 点成长值即可升级！
+                </p>
+              )}
+            </div>
+
+            {/* 等级时间线 */}
+            <div className="mt-6 flex justify-center gap-1 sm:gap-2 flex-wrap max-w-lg mx-auto">
+              {PET_LEVELS.map((level) => {
+                const unlocked = level.level <= userData.petLevel;
+                const current = level.level === userData.petLevel;
+                const stagePreview = userData.adoptedPet
+                  ? getPetStageEmoji(userData.adoptedPet, level.level)
+                  : level.appearance;
+                return (
+                  <div
+                    key={level.level}
+                    className={cn(
+                      'text-center px-2 py-2 sm:px-3 rounded-xl min-w-[3.25rem] transition-all duration-300',
+                      unlocked ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-400',
+                      current && 'ring-2 ring-orange-500 ring-offset-2 scale-110 shadow-md z-10'
+                    )}
+                  >
+                    <div className={cn('text-xl sm:text-2xl', current && 'animate-pulse')}>{stagePreview}</div>
+                    <div className="text-[10px] sm:text-xs font-bold mt-0.5">Lv{level.level}</div>
+                    <div className="text-[9px] text-gray-500 leading-tight hidden sm:block">{level.name}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 喂养按钮 */}
+        <div className="bg-white rounded-2xl p-6 shadow-warm mb-6">
+          <div className="text-center mb-4">
+            <div className="text-4xl mb-2">🍖</div>
+            <h3 className="font-bold text-lg text-gray-800">喂养小动物</h3>
+            <p className="text-gray-500 text-sm">消耗 30 积分，获得 1 点成长值</p>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+              <span className="font-medium">当前积分：{userData.points}</span>
+            </div>
+            <button
+              onClick={handleFeed}
+              disabled={userData.points < 30}
+              className={cn(
+                'px-6 py-3 rounded-full font-bold transition-all shadow-warm',
+                userData.points >= 30
+                  ? 'bg-gradient-to-r from-orange-400 to-pink-500 text-white hover:scale-105'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              )}
+            >
+              🐟 喂养 (+1成长值)
+            </button>
+          </div>
+
+          {userData.points < 30 && (
+            <p className="text-center text-sm text-red-500">
+              💡 积分不足，去学习赚取更多积分吧！
+            </p>
+          )}
+        </div>
+
+        {/* 背包物品使用 */}
+        {Object.keys(userData.userItems || {}).length > 0 && (
+          <div className="bg-gradient-to-r from-orange-100 to-red-50 rounded-2xl p-4 shadow-warm mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <span className="text-2xl">🎁</span>
+                我的背包
+                <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {Object.keys(userData.userItems).length}
+                </span>
+              </h3>
+              <button
+                onClick={() => navigate('/shop')}
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+              >
+                去商店 +
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-3">
+              在商店兑换的物品都会出现在这里。点击下面任意物品喂给小动物，每次消耗 1 个并获得 +2 成长值。
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(userData.userItems).map(([itemId, count]) => {
+                const item = findShopItemById(itemId);
+                const name = item?.name ?? '神秘物品';
+                const emoji = item?.emoji ?? '🎁';
+                return (
+                  <button
+                    key={itemId}
+                    type="button"
+                    onClick={() => {
+                      if (consumeItem(itemId)) {
+                        setUsedItemName(emoji);
+                        setFeedSuccess(true);
+                        setTimeout(() => {
+                          setFeedSuccess(false);
+                          setUsedItemName(null);
+                        }, 1500);
+
+                        const nextLevel = getNextLevel();
+                        if (nextLevel && userData.petExp + 2 >= nextLevel.minExp) {
+                          setLevelUpData({
+                            newLevel: userData.petLevel + 1,
+                            previousLevel: userData.petLevel,
+                          });
+                          setTimeout(() => setShowLevelUp(true), 1600);
+                        }
+                      }
+                    }}
+                    className="bg-white rounded-xl px-4 py-2 flex items-center gap-2 hover:bg-orange-50 transition-all shadow-sm hover:shadow-md active:scale-95"
+                  >
+                    <span className="text-2xl">{emoji}</span>
+                    <div className="text-left">
+                      <div className="font-bold text-sm text-gray-800">{name}</div>
+                      <div className="text-xs text-orange-500">x{count}</div>
+                    </div>
+                    <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full ml-1">
+                      +2成长
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 背包为空提示 */}
+        {Object.keys(userData.userItems || {}).length === 0 && (
+          <button
+            onClick={() => navigate('/shop')}
+            className="w-full bg-white rounded-2xl p-4 shadow-warm mb-6 flex items-center justify-center gap-3 hover:shadow-warm-lg transition-all"
+          >
+            <span className="text-3xl">🛒</span>
+            <div className="text-left">
+              <p className="font-bold text-gray-800">背包空空~</p>
+              <p className="text-sm text-gray-500">去商店兑换小零食喂你的小动物吧！</p>
+            </div>
+          </button>
+        )}
+
+        {/* 快捷入口 */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => navigate('/')}
+            className="bg-white rounded-xl p-4 shadow-warm hover:shadow-warm-lg transition-all flex items-center gap-3"
+          >
+            <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-2xl">
+              📚
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-gray-800">去学习</p>
+              <p className="text-xs text-gray-500">赚取积分</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/shop')}
+            className="bg-white rounded-xl p-4 shadow-warm flex items-center gap-3 hover:shadow-warm-lg transition-all"
+          >
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl">
+              🏪
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-gray-800">兑换商店</p>
+              <p className="text-xs text-purple-500">去看看有什么好东西</p>
+            </div>
+          </button>
+        </div>
+
+        {/* 升级庆祝弹窗 */}
+        {showLevelUp && levelUpData && (
+          <PetModal
+            isOpen={showLevelUp}
+            onClose={() => {
+              setShowLevelUp(false);
+              setLevelUpData(null);
+            }}
+            type="levelup"
+            petType={userData.adoptedPet || 'dog'}
+            newLevel={levelUpData.newLevel}
+            previousLevel={levelUpData.previousLevel}
+          />
+        )}
+
+        {/* 喂养成功提示 */}
+        {feedSuccess && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce">
+            {usedItemName ? `${usedItemName} 喂养成功！+2成长值` : '🎉 喂养成功！'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

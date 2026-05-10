@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB"/>
+      <stop offset="100%" style="stop-color:#E0F4FF"/>
+    </linearGradient>
+    <linearGradient id="towerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF8C00"/>
+      <stop offset="50%" style="stop-color:#FFA500"/>
+      <stop offset="100%" style="stop-color:#FF8C00"/>
+    </linearGradient>
+  </defs>
+  <!-- Sky background -->
+  <rect width="100" height="100" fill="url(#skyGrad)"/>
+  <!-- Sun -->
+  <circle cx="80" cy="20" r="12" fill="#FFD700"/>
+  <!-- Sea -->
+  <rect x="0" y="75" width="100" height="25" fill="#4169E1" opacity="0.7"/>
+  <path d="M0 78 Q 10 73, 20 78 T 40 78 T 60 78 T 80 78 T 100 78 V 100 H 0 Z" fill="#4169E1" opacity="0.5"/>
+  <!-- Lighthouse tower -->
+  <path d="M35 75 L40 35 L60 35 L65 75 Z" fill="url(#towerGrad)"/>
+  <!-- Stripes -->
+  <rect x="38" y="45" width="24" height="6" fill="#FFFFFF"/>
+  <rect x="36" y="60" width="28" height="6" fill="#FFFFFF"/>
+  <!-- Lighthouse top -->
+  <rect x="35" y="30" width="30" height="5" fill="#8B0000"/>
+  <!-- Light beam -->
+  <path d="M50 32 L20 15 L25 10 Z" fill="#FFFF00" opacity="0.6"/>
+  <path d="M50 32 L80 15 L75 10 Z" fill="#FFFF00" opacity="0.6"/>
+  <!-- Light glow -->
+  <circle cx="50" cy="32" r="6" fill="#FFFF00"/>
+  <circle cx="50" cy="32" r="8" fill="#FFFF00" opacity="0.5"/>
+  <!-- Roof -->
+  <path d="M35 30 L50 20 L65 30 Z" fill="#8B0000"/>
+  <!-- Door -->
+  <rect x="45" y="65" width="10" height="10" fill="#8B4513" rx="5" ry="0"/>
+</svg>

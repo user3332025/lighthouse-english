@@ -1,0 +1,342 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #f97316;
+  --color-primary-light: #fb923c;
+  --color-primary-dark: #ea580c;
+  --color-warm-bg: #fffbf5;
+  --color-warm-card: #fff8f0;
+  --color-warm-accent: #fcd34d;
+  --color-warm-text: #78350f;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: 'Nunito', 'Comic Sans MS', sans-serif;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #ffedd5 100%);
+  color: #78350f;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* 防止页面滚动时出现跳动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 卡片悬浮效果 */
+.card-hover {
+  @apply transition-all duration-300 ease-out;
+}
+.card-hover:hover {
+  @apply transform -translate-y-1;
+  box-shadow: 0 12px 24px rgba(249, 115, 22, 0.2);
+}
+
+/* 按钮点击效果 */
+.btn-press:active {
+  @apply transform scale-95;
+}
+
+/* 正确答案动画 */
+@keyframes correct-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.correct-animation {
+  animation: correct-pulse 0.6s ease-out;
+}
+
+/* 错误动画 */
+@keyframes wrong-shake {
+  0%, 100% {
+    transform: translateX(0);
+    border-color: #ef4444;
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+    border-color: #ef4444;
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+    border-color: #ef4444;
+  }
+}
+
+.wrong-animation {
+  animation: wrong-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+  @apply border-red-500 bg-red-50;
+}
+
+/* 选错但未揭示答案：柔和提示 */
+@keyframes wrong-soft-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.wrong-soft-shake {
+  animation: wrong-soft-shake 0.45s ease-out both;
+  @apply border-amber-500 bg-amber-50;
+}
+
+/* 进度条动画 */
+.progress-bar {
+  @apply transition-all duration-500 ease-out;
+}
+
+/* 小动物弹跳动画 */
+@keyframes pet-bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-15px) rotate(-5deg);
+  }
+  75% {
+    transform: translateY(-15px) rotate(5deg);
+  }
+}
+
+.pet-bounce {
+  animation: pet-bounce 1s ease-in-out infinite;
+}
+
+/* 错题鼓励：小动物跳进画面 */
+@keyframes encourage-pop {
+  0% {
+    transform: scale(0.35) rotate(-10deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.12) rotate(6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+
+.encourage-pop {
+  animation: encourage-pop 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+
+/* 卡片弹入动画 */
+@keyframes card-pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.card-pop {
+  animation: card-pop 0.3s ease-out forwards;
+}
+
+/* 渐入效果 */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 星星动画 */
+@keyframes star-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.star-spin {
+  animation: star-spin 1s ease-in-out;
+}
+
+/* 音符动画 */
+@keyframes note-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-10px) scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.note-float {
+  animation: note-float 1.5s ease-in-out infinite;
+}
+
+/* 阴影效果 */
+.shadow-warm {
+  box-shadow: 0 4px 14px 0 rgba(249, 115, 22, 0.25);
+}
+
+.shadow-warm-lg {
+  box-shadow: 0 8px 30px 0 rgba(249, 115, 22, 0.35);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ffedd5;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #fb923c;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f97316;
+}
+
+/* 禁用选择文字（游戏区域） */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 卡片排序拖拽效果 */
+.drag-item {
+  @apply cursor-grab active:cursor-grabbing;
+  touch-action: none;
+}
+
+.drag-item.dragging {
+  @apply opacity-75 scale-105;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* 升级弹窗动画 */
+@keyframes level-up {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.level-up {
+  animation: level-up 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+/* 模态框背景 */
+.modal-backdrop {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40;
+}
+
+/* 答题卡样式 */
+.answer-card {
+  @apply p-4 rounded-2xl border-2 transition-all duration-200;
+  @apply bg-white border-orange-200 hover:border-orange-400;
+}
+
+.answer-card.selected {
+  @apply border-orange-500 bg-orange-50;
+}
+
+.answer-card.correct {
+  @apply border-green-500 bg-green-50;
+}
+
+.answer-card.wrong {
+  @apply border-red-500 bg-red-50;
+}
+
+/* 高等级宠物头像光晕 */
+@keyframes pet-aura-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.45), 0 0 28px rgba(249, 115, 22, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.4), 0 0 36px rgba(236, 72, 153, 0.45);
+  }
+}
+
+.pet-aura-soft {
+  animation: pet-aura-glow 2.8s ease-in-out infinite;
+}
+
+.pet-aura-strong {
+  animation: pet-aura-glow 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px rgba(249, 115, 22, 0.35));
+}
+
+@keyframes level-up-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.level-up-emoji-pop {
+  animation: level-up-flash 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
