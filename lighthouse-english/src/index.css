@@ -443,6 +443,106 @@ html {
   animation: pet-click-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+/* 浮动动画 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+    opacity: 1;
+  }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 3.5s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+/* 等级1: 幼崽 - 柔软可爱 */
+@keyframes level1-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 25px rgba(251, 191, 36, 0.7); }
+}
+.pet-level-1 {
+  animation: level1-glow 2.5s ease-in-out infinite, pet-idle-breathe 3s ease-in-out infinite;
+  border-style: dotted !important;
+  border-width: 3px !important;
+}
+
+/* 等级2: 成长 - 清新活力 */
+@keyframes level2-sparkle {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+.pet-level-2 {
+  animation: level2-sparkle 2s ease-in-out infinite, pet-idle-breathe 3s ease-in-out infinite;
+  border-style: double !important;
+  border-width: 4px !important;
+}
+
+/* 等级3: 成年 - 优雅自信 */
+@keyframes level3-wiggle-glow {
+  0%, 100% { transform: rotate(-2deg); box-shadow: 0 0 20px rgba(236, 72, 153, 0.4); }
+  50% { transform: rotate(2deg); box-shadow: 0 0 30px rgba(236, 72, 153, 0.6); }
+}
+.pet-level-3 {
+  animation: level3-wiggle-glow 2s ease-in-out infinite;
+  border-style: solid !important;
+  border-width: 4px !important;
+}
+
+/* 等级4: 伙伴 - 神秘光芒 */
+@keyframes level4-aura {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3);
+    transform: scale(1) rotate(0deg);
+  }
+  25% { 
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 50px rgba(168, 85, 247, 0.4);
+    transform: scale(1.02) rotate(-1deg);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(168, 85, 247, 0.7), 0 0 60px rgba(168, 85, 247, 0.5);
+    transform: scale(1.03) rotate(0deg);
+  }
+  75% { 
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 50px rgba(168, 85, 247, 0.4);
+    transform: scale(1.02) rotate(1deg);
+  }
+}
+.pet-level-4 {
+  animation: level4-aura 3s ease-in-out infinite;
+  border-style: ridge !important;
+  border-width: 5px !important;
+}
+
+/* 等级5: 守护者 - 华丽王者 */
+@keyframes level5-regal {
+  0%, 100% { 
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.6), 0 0 60px rgba(245, 158, 11, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.3);
+    transform: scale(1) rotate(0deg);
+  }
+  33% { 
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.7), 0 0 70px rgba(244, 114, 182, 0.5), inset 0 0 25px rgba(255, 255, 255, 0.4);
+    transform: scale(1.04) rotate(-2deg);
+  }
+  66% { 
+    box-shadow: 0 0 50px rgba(244, 114, 182, 0.8), 0 0 80px rgba(251, 191, 36, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.5);
+    transform: scale(1.05) rotate(2deg);
+  }
+}
+.pet-level-5 {
+  animation: level5-regal 4s ease-in-out infinite;
+  border-style: double !important;
+  border-width: 6px !important;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,247,237,0.98) 50%, rgba(255,255,255,0.98) 100%) !important;
+}
+
 @keyframes level-up-flash {
   0% {
     opacity: 0;

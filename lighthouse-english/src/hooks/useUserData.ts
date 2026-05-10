@@ -28,6 +28,44 @@ export const PET_FACES: Record<PetType, { normal: string; happy: string; hungry:
   fox: { normal: '🦊', happy: '🦝', hungry: '🥺', sleeping: '😴' },
 };
 
+export const PET_LEVEL_EMOJIS: Record<PetType, Record<number, string>> = {
+  dog: {
+    1: '🐶',
+    2: '🐕',
+    3: '🦮',
+    4: '🐕‍🦺',
+    5: '🦮'
+  },
+  cat: {
+    1: '🐱',
+    2: '😺',
+    3: '😸',
+    4: '😼',
+    5: '😻'
+  },
+  rabbit: {
+    1: '🐰',
+    2: '🐇',
+    3: '🐰',
+    4: '🐇',
+    5: '🐰'
+  },
+  bear: {
+    1: '🐻',
+    2: '🧸',
+    3: '🐻',
+    4: '🐻‍❄️',
+    5: '🐼'
+  },
+  fox: {
+    1: '🦊',
+    2: '🦝',
+    3: '🦊',
+    4: '🦝',
+    5: '🦊'
+  }
+};
+
 // 默认装饰和背景数据
 const defaultUserDecorations: UserDecorations = {
   ownedAccessories: [],
@@ -213,21 +251,25 @@ export function useUserData() {
         q => q.questionId === question.questionId
       );
       if (existing) return prev;
-      return saveData({
+      const newData = {
         ...prev,
         wrongQuestions: [...prev.wrongQuestions, question],
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
   const markWrongQuestionCorrect = useCallback((questionId: string) => {
     setUserData(prev => {
-      return saveData({
+      const newData = {
         ...prev,
         wrongQuestions: prev.wrongQuestions.filter(
           q => q.questionId !== questionId
         ),
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
@@ -238,7 +280,7 @@ export function useUserData() {
       );
       if (existing) return prev;
       const now = Date.now();
-      return saveData({
+      const newData = {
         ...prev,
         wordLearningRecords: [
           ...prev.wordLearningRecords,
@@ -255,18 +297,22 @@ export function useUserData() {
             isMastered: false,
           },
         ],
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
   const unmarkWordLearned = useCallback((word: string, textbookId: string, unitId: number) => {
     setUserData(prev => {
-      return saveData({
+      const newData = {
         ...prev,
         wordLearningRecords: prev.wordLearningRecords.filter((r) => 
           !(r.word === word && r.textbookId === textbookId && r.unitId === unitId)
         ),
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
@@ -284,7 +330,7 @@ export function useUserData() {
       
       if (idx === -1) {
         // 如果记录不存在，创建新记录
-        return saveData({
+        const newData = {
           ...prev,
           wordLearningRecords: [
             ...records,
@@ -301,7 +347,9 @@ export function useUserData() {
               isMastered: false,
             },
           ],
-        });
+        };
+        saveData(newData);
+        return newData;
       }
       
       const record = records[idx];
@@ -330,7 +378,9 @@ export function useUserData() {
         isMastered,
       };
       
-      return saveData({ ...prev, wordLearningRecords: records });
+      const newData = { ...prev, wordLearningRecords: records };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
@@ -352,16 +402,18 @@ export function useUserData() {
         meaning,
         phonetic
       };
-      return saveData({
+      const newData = {
         ...prev,
         markedWords: [...cleanedMarkedWords, newMarkedWord],
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
   const removeMarkedWord = useCallback((word: string, textbookId: string, unitId: number) => {
     setUserData(prev => {
-      return saveData({
+      const newData = {
         ...prev,
         markedWords: prev.markedWords.filter(w => {
           // 兼容旧格式（只有wordId的情况）
@@ -371,7 +423,9 @@ export function useUserData() {
           // 新格式检查
           return !(w.word === word && w.textbookId === textbookId && w.unitId === unitId);
         }),
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
@@ -391,13 +445,15 @@ export function useUserData() {
     const newPet = createPet(type, name);
     setUserData(prev => {
       const newPets = [...prev.petHome.pets, newPet];
-      return saveData({
+      const newData = {
         ...prev,
         petHome: {
           pets: newPets,
           activePetId: newPet.id,
         },
-      });
+      };
+      saveData(newData);
+      return newData;
     });
     return newPet;
   }, [saveData]);
@@ -407,13 +463,15 @@ export function useUserData() {
     const newPet = createTestPet(type, level, name);
     setUserData(prev => {
       const newPets = [...prev.petHome.pets, newPet];
-      return saveData({
+      const newData = {
         ...prev,
         petHome: {
           pets: newPets,
           activePetId: newPet.id,
         },
-      });
+      };
+      saveData(newData);
+      return newData;
     });
     return newPet;
   }, [saveData]);
@@ -422,13 +480,15 @@ export function useUserData() {
   const setActivePet = useCallback((petId: string) => {
     setUserData(prev => {
       if (!prev.petHome.pets.find(p => p.id === petId)) return prev;
-      return saveData({
+      const newData = {
         ...prev,
         petHome: {
           ...prev.petHome,
           activePetId: petId,
         },
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
@@ -444,15 +504,51 @@ export function useUserData() {
       const newPets = prev.petHome.pets.map(p => 
         p.id === petId ? { ...p, ...updates } : p
       );
-      return saveData({
+      const newData = {
         ...prev,
         petHome: {
           ...prev.petHome,
           pets: newPets,
         },
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
+
+  // 添加物品到背包
+  const addItem = useCallback((itemId: string, count: number = 1) => {
+    setUserData(prev => {
+      const newInventory = {
+        ...prev.inventory,
+        [itemId]: (prev.inventory[itemId] || 0) + count,
+      };
+      const newData = { ...prev, inventory: newInventory };
+      saveData(newData);
+      return newData;
+    });
+  }, [saveData]);
+
+  // 使用物品（从背包移除）
+  const useItem = useCallback((itemId: string): boolean => {
+    const count = userData.inventory[itemId];
+    if (!count || count <= 0) return false;
+
+    setUserData(prev => {
+      const newCount = prev.inventory[itemId] - 1;
+      const newInventory = { ...prev.inventory };
+      if (newCount <= 0) {
+        delete newInventory[itemId];
+      } else {
+        newInventory[itemId] = newCount;
+      }
+      const newData = { ...prev, inventory: newInventory };
+      saveData(newData);
+      return newData;
+    });
+
+    return true;
+  }, [userData.inventory, saveData]);
 
   // 喂食宠物
   const feedPet = useCallback((petId: string, itemId: string) => {
@@ -498,36 +594,6 @@ export function useUserData() {
     return true;
   }, [userData.petHome.pets, updatePet]);
 
-  // 添加物品到背包
-  const addItem = useCallback((itemId: string, count: number = 1) => {
-    setUserData(prev => {
-      const newInventory = {
-        ...prev.inventory,
-        [itemId]: (prev.inventory[itemId] || 0) + count,
-      };
-      return saveData({ ...prev, inventory: newInventory });
-    });
-  }, [saveData]);
-
-  // 使用物品（从背包移除）
-  const useItem = useCallback((itemId: string): boolean => {
-    const count = userData.inventory[itemId];
-    if (!count || count <= 0) return false;
-
-    setUserData(prev => {
-      const newCount = prev.inventory[itemId] - 1;
-      const newInventory = { ...prev.inventory };
-      if (newCount <= 0) {
-        delete newInventory[itemId];
-      } else {
-        newInventory[itemId] = newCount;
-      }
-      return saveData({ ...prev, inventory: newInventory });
-    });
-
-    return true;
-  }, [userData.inventory, saveData]);
-
   // 获取背包物品数量
   const getItemCount = useCallback((itemId: string): number => {
     return userData.inventory[itemId] || 0;
@@ -565,22 +631,30 @@ export function useUserData() {
     // 根据类型处理
     if (item.type === 'accessory') {
       // 购买装饰，添加到已拥有列表
-      setUserData(prev => saveData({
-        ...prev,
-        userDecorations: {
-          ...prev.userDecorations,
-          ownedAccessories: [...prev.userDecorations.ownedAccessories, itemId],
-        }
-      }));
+      setUserData(prev => {
+        const newData = {
+          ...prev,
+          userDecorations: {
+            ...prev.userDecorations,
+            ownedAccessories: [...prev.userDecorations.ownedAccessories, itemId],
+          }
+        };
+        saveData(newData);
+        return newData;
+      });
     } else if (item.type === 'background') {
       // 购买背景，添加到已拥有列表
-      setUserData(prev => saveData({
-        ...prev,
-        userDecorations: {
-          ...prev.userDecorations,
-          ownedBackgrounds: [...prev.userDecorations.ownedBackgrounds, itemId],
-        }
-      }));
+      setUserData(prev => {
+        const newData = {
+          ...prev,
+          userDecorations: {
+            ...prev.userDecorations,
+            ownedBackgrounds: [...prev.userDecorations.ownedBackgrounds, itemId],
+          }
+        };
+        saveData(newData);
+        return newData;
+      });
     } else {
       // 食物和玩具正常添加到背包
       addItem(itemId);
@@ -607,19 +681,25 @@ export function useUserData() {
       if (newActiveId === petId) {
         newActiveId = newPets.length > 0 ? newPets[0].id : null;
       }
-      return saveData({
+      const newData = {
         ...prev,
         petHome: {
           pets: newPets,
           activePetId: newActiveId,
         },
-      });
+      };
+      saveData(newData);
+      return newData;
     });
   }, [saveData]);
 
   // 测试模式：添加大量积分
   const addTestPoints = (amount: number = 1000) => {
-    setUserData(prev => saveData({ ...prev, points: prev.points + amount }));
+    setUserData(prev => {
+      const newData = { ...prev, points: prev.points + amount };
+      saveData(newData);
+      return newData;
+    });
   };
 
   // 测试模式：添加所有物品到背包
@@ -631,19 +711,25 @@ export function useUserData() {
        'ball', 'rope', 'bone', 'feather', 'yarn', 'bell', 'mouse', 'laser'].forEach(itemId => {
         newInventory[itemId] = (newInventory[itemId] || 0) + 10;
       });
-      return saveData({ ...prev, inventory: newInventory });
+      const newData = { ...prev, inventory: newInventory };
+      saveData(newData);
+      return newData;
     });
   };
 
   // 测试模式：解锁所有装饰品和背景
   const unlockAllTestDecorations = () => {
-    setUserData(prev => saveData({
-      ...prev,
-      userDecorations: {
-        ownedAccessories: ['crown', 'bow', 'hat', 'glasses', 'necklace', 'flower', 'star', 'heart'],
-        ownedBackgrounds: ['meadow', 'sunset', 'night', 'rainbow', 'beach', 'mountain', 'garden', 'space'],
-      }
-    }));
+    setUserData(prev => {
+      const newData = {
+        ...prev,
+        userDecorations: {
+          ownedAccessories: ['crown', 'bow', 'hat', 'glasses', 'necklace', 'flower', 'star', 'heart'],
+          ownedBackgrounds: ['meadow', 'sunset', 'night', 'rainbow', 'beach', 'mountain', 'garden', 'space'],
+        }
+      };
+      saveData(newData);
+      return newData;
+    });
   };
 
   // 测试模式：重置所有数据
@@ -681,7 +767,9 @@ export function useUserData() {
           });
         }
       });
-      return saveData({ ...prev, wordLearningRecords: newRecords });
+      const newData = { ...prev, wordLearningRecords: newRecords };
+      saveData(newData);
+      return newData;
     });
   };
 

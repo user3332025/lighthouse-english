@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Star, Heart, Utensils, Sparkles, Sun, Moon } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { PetModal } from '@/components/PetModal';
-import { useUserData, PET_FACES, PET_LEVELS, PET_NAMES } from '@/hooks/useUserData';
+import { PetIcon } from '@/components/PetIcon';
+import { CSSPetIcon } from '@/components/CSSPetIcon';
+import { useUserData, PET_FACES, PET_LEVELS, PET_NAMES, PET_LEVEL_EMOJIS } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
 import { PetType, Pet, Item } from '@/types';
 import { PET_ITEMS, findItemById, PET_EMOJIS } from '@/data/petItems';
@@ -211,14 +213,20 @@ export function PetPage() {
     if (!pet) return '🐾';
     
     const face = PET_FACES[pet.type];
+    const levelEmoji = PET_LEVEL_EMOJIS[pet.type]?.[pet.level] || PET_EMOJIS[pet.type];
     
     if (currentAction === 'eating') return '🍎';
     if (currentAction === 'playing') return '🎮';
-    if (petMood === 'happy' && face?.happy) return face.happy;
+    if (petMood === 'happy' && face?.happy) {
+      const happyLevelEmoji = PET_LEVEL_EMOJIS[pet.type]?.[pet.level];
+      if (happyLevelEmoji && pet.level < 5) {
+        return happyLevelEmoji;
+      }
+      return face.happy;
+    }
     if (pet.hunger < 30 && face?.hungry) return face.hungry;
-    if (face?.normal) return face.normal;
     
-    return PET_EMOJIS[pet.type] || '🐾';
+    return levelEmoji;
   };
 
   const getStatusColor = (value: number) => {
@@ -390,30 +398,38 @@ export function PetPage() {
 
             <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center">
               <div className="relative">
+                {/* 皇冠装饰 - 5级专属 */}
+                {activePet?.level >= 5 && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-10">
+                    <span className="text-5xl animate-bounce drop-shadow-lg">👑</span>
+                    <span className="absolute top-2 left-1/2 -translate-x-1/2 text-2xl animate-pulse" style={{ animationDelay: '0.3s' }}>✨</span>
+                    <span className="absolute top-1 -left-3 text-xl animate-pulse" style={{ animationDelay: '0.1s' }}>⭐</span>
+                    <span className="absolute top-1 -right-3 text-xl animate-pulse" style={{ animationDelay: '0.5s' }}>⭐</span>
+                  </div>
+                )}
+                
                 <button
                   onClick={handlePetClick}
                   className={cn(
-                    'rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-xl transition-all duration-300 border-4 cursor-pointer hover:scale-105 active:scale-95',
-                    activePet?.level === 1 && 'w-36 h-36 text-7xl border-amber-300 pet-idle-breathe',
-                    activePet?.level === 2 && 'w-40 h-40 text-8xl border-orange-300 pet-idle-breathe',
-                    activePet?.level === 3 && 'w-44 h-44 text-8xl border-pink-300 pet-wiggle',
-                    activePet?.level === 4 && 'w-48 h-48 text-9xl border-purple-300 pet-aura-soft pet-wiggle',
-                    activePet?.level >= 5 && 'w-52 h-52 text-9xl sm:text-[150px] border-amber-400 pet-aura-strong pet-wiggle',
+                    'cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95',
                     feedSuccess && 'animate-bounce scale-110',
                     isPetClicked && 'animate-pet-click',
                     playSuccess && 'animate-spin-slow'
                   )}
                 >
-                  <span 
+                  <CSSPetIcon
+                    type={activePet?.type || 'dog'}
+                    level={activePet?.level || 1}
+                    size={activePet?.level >= 5 ? 'xl' : activePet?.level >= 4 ? 'xl' : activePet?.level >= 3 ? 'lg' : activePet?.level >= 2 ? 'lg' : 'lg'}
+                    mood={petMood}
                     className={cn(
-                      'leading-none select-none transition-transform duration-300',
-                      petMood === 'excited' && 'animate-bounce',
-                      petMood === 'happy' && 'scale-110'
-                    )} 
-                    title={`${PET_NAMES[activePet?.type || 'dog']} Lv${activePet?.level} - 点击互动！`}
-                  >
-                    {getPetEmoji(activePet!)}
-                  </span>
+                      activePet?.level === 1 && 'pet-level-1',
+                      activePet?.level === 2 && 'pet-level-2',
+                      activePet?.level === 3 && 'pet-level-3',
+                      activePet?.level === 4 && 'pet-level-4',
+                      activePet?.level >= 5 && 'pet-level-5'
+                    )}
+                  />
                 </button>
                 
                 {activePet?.accessory && (
@@ -510,24 +526,133 @@ export function PetPage() {
               )}
             </div>
 
-            <div className="flex justify-center gap-2 flex-wrap max-w-lg mx-auto">
+            <div className="flex justify-center gap-3 flex-wrap max-w-2xl mx-auto">
               {PET_LEVELS.map((level) => {
                 const unlocked = level.level <= (activePet?.level || 1);
                 const current = level.level === (activePet?.level || 1);
+                const getLevelStyle = (lvl: number) => {
+                  switch (lvl) {
+                    case 1: return 'bg-gradient-to-br from-amber-100 to-yellow-100 text-amber-800 border-2 border-amber-300 border-dashed';
+                    case 2: return 'bg-gradient-to-br from-orange-100 to-pink-100 text-orange-800 border-2 border-orange-300 border-double';
+                    case 3: return 'bg-gradient-to-br from-pink-100 to-rose-100 text-pink-800 border-2 border-pink-300 border-solid';
+                    case 4: return 'bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-800 border-2 border-purple-300 border-ridge';
+                    case 5: return 'bg-gradient-to-br from-amber-100 via-orange-100 to-pink-100 text-amber-900 border-3 border-amber-400 border-double';
+                    default: return 'bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600';
+                  }
+                };
+                const getLevelSize = (lvl: number) => {
+                  switch (lvl) {
+                    case 1: return 'min-w-[4.5rem] px-2 py-2';
+                    case 2: return 'min-w-[5rem] px-2 py-2';
+                    case 3: return 'min-w-[5.5rem] px-3 py-3';
+                    case 4: return 'min-w-[6rem] px-3 py-3';
+                    case 5: return 'min-w-[6.5rem] px-4 py-4';
+                    default: return 'min-w-[4rem] px-3 py-2';
+                  }
+                };
+                const getEmojiSize = (lvl: number) => {
+                  switch (lvl) {
+                    case 1: return 'text-2xl';
+                    case 2: return 'text-3xl';
+                    case 3: return 'text-3xl';
+                    case 4: return 'text-4xl';
+                    case 5: return 'text-5xl';
+                    default: return 'text-2xl';
+                  }
+                };
+                const getTimelineEmoji = (lvl: number, petType: PetType = 'dog') => {
+                  if (!unlocked) return '❓';
+                  return PET_LEVEL_EMOJIS[petType]?.[lvl] || PET_EMOJIS[petType];
+                };
+                const getLevelDecorations = (lvl: number) => {
+                  switch (lvl) {
+                    case 1:
+                      return (
+                        <>
+                          <span className="absolute -top-2 -left-2 text-sm animate-pulse">✨</span>
+                          <span className="absolute -top-2 -right-2 text-sm animate-pulse" style={{ animationDelay: '0.3s' }}>🌟</span>
+                        </>
+                      );
+                    case 2:
+                      return (
+                        <>
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-lg animate-bounce">💫</span>
+                        </>
+                      );
+                    case 3:
+                      return (
+                        <>
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-lg animate-bounce">⭐</span>
+                          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-sm">✨</span>
+                        </>
+                      );
+                    case 4:
+                      return (
+                        <>
+                          <span className="absolute -top-3 -left-3 text-xl animate-pulse">💎</span>
+                          <span className="absolute -top-3 -right-3 text-xl animate-pulse" style={{ animationDelay: '0.2s' }}>💎</span>
+                        </>
+                      );
+                    case 5:
+                      return (
+                        <>
+                          <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-3xl animate-bounce">👑</span>
+                          <span className="absolute -top-2 -left-3 text-xl animate-pulse">🌟</span>
+                          <span className="absolute -top-2 -right-3 text-xl animate-pulse" style={{ animationDelay: '0.2s' }}>🌟</span>
+                          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xl animate-pulse" style={{ animationDelay: '0.4s' }}>💎</span>
+                        </>
+                      );
+                    default:
+                      return null;
+                  }
+                };
                 return (
                   <div
                     key={level.level}
                     className={cn(
-                      'text-center px-3 py-2 rounded-xl min-w-[4rem] transition-all duration-300',
-                      unlocked ? 'bg-gradient-to-br from-orange-100 to-amber-100 text-orange-800' : 'bg-gray-100 text-gray-400',
-                      current && 'ring-2 ring-orange-500 ring-offset-2 scale-110 shadow-md z-10'
+                      'text-center rounded-xl transition-all duration-300 relative',
+                      getLevelSize(level.level),
+                      unlocked ? getLevelStyle(level.level) : 'bg-gray-100 text-gray-400 border-2 border-gray-200',
+                      current && 'ring-4 ring-offset-4 shadow-xl z-20',
+                      current && level.level === 1 && 'ring-amber-400 scale-115',
+                      current && level.level === 2 && 'ring-orange-400 scale-115',
+                      current && level.level === 3 && 'ring-pink-400 scale-115',
+                      current && level.level === 4 && 'ring-purple-400 scale-115',
+                      current && level.level >= 5 && 'ring-amber-500 scale-120'
                     )}
                   >
-                    <div className={cn('text-2xl', current && 'animate-pulse')}>
-                      {unlocked ? PET_EMOJIS[activePet?.type || 'dog'] : '❓'}
+                    {/* 等级装饰元素 */}
+                    {unlocked && getLevelDecorations(level.level)}
+                    
+                    <div className={cn(
+                      getEmojiSize(level.level), 
+                      'leading-tight transition-all duration-300 relative z-10',
+                      current && 'animate-bounce'
+                    )}>
+                      {getTimelineEmoji(level.level, activePet?.type || 'dog')}
                     </div>
-                    <div className="text-xs font-bold mt-1">Lv{level.level}</div>
-                    <div className="text-[10px] text-gray-500">{level.name}</div>
+                    
+                    <div className={cn(
+                      'font-bold mt-1 relative z-10',
+                      level.level === 1 && 'text-[10px]',
+                      level.level === 2 && 'text-[11px]',
+                      level.level === 3 && 'text-xs',
+                      level.level === 4 && 'text-sm',
+                      level.level >= 5 && 'text-base font-bold'
+                    )}>
+                      Lv{level.level}
+                    </div>
+                    
+                    <div className={cn(
+                      'text-gray-500 relative z-10',
+                      level.level === 1 && 'text-[9px]',
+                      level.level === 2 && 'text-[10px]',
+                      level.level === 3 && 'text-[11px]',
+                      level.level === 4 && 'text-xs',
+                      level.level >= 5 && 'text-sm font-medium'
+                    )}>
+                      {level.name}
+                    </div>
                   </div>
                 );
               })}
