@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton, type EncouragementTier } from '@/components/RecordButton';
+import { FullRecordButton as RecordButton, type EncouragementTier } from '../components/FullRecordButton';
 import { WORD_LEARNING_DATA, Book, Unit } from '@/data/wordLearning';
 import { cn } from '@/lib/utils';
 import { BookOpen, CheckCircle } from 'lucide-react';

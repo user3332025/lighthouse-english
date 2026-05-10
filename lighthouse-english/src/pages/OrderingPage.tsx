@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { GameHeader } from '@/components/ProgressBar';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton } from '@/components/RecordButton';
 import { PetModal } from '@/components/PetModal';
 import { ORDERING_QUESTIONS } from '@/data/questions';
 import { useUserData } from '@/hooks/useUserData';
@@ -255,10 +254,6 @@ export function OrderingPage() {
                     </span>
                     <SpeechButton 
                       text={currentQuestion.correctOrder.map((i: number) => currentQuestion.shuffledSentences[i]).join(' ')} 
-                      size="sm" 
-                    />
-                    <RecordButton 
-                      targetText={currentQuestion.correctOrder.map((i: number) => currentQuestion.shuffledSentences[i]).join(' ')} 
                       size="sm" 
                     />
                   </div>

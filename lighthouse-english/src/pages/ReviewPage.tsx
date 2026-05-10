@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton } from '@/components/RecordButton';
 import { useUserData } from '@/hooks/useUserData';
 import { normalizeOrderingWord, shuffleArray } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -560,30 +559,39 @@ export function ReviewPage() {
                   const isCorrectAnswer = option === display.correctAnswer;
 
                   return (
-                    <button
+                    <div
                       key={index}
-                      type="button"
-                      onClick={() => handleSelectAnswer(option)}
-                      disabled={selectedAnswer !== null}
                       className={cn(
-                        'p-4 rounded-xl border-2 text-left transition-all',
+                        'p-4 rounded-xl border-2 transition-all flex flex-col gap-3',
                         selectedAnswer === null && 'border-purple-200 hover:border-purple-400 hover:bg-purple-50',
                         isSelected && isCorrect && 'border-green-500 bg-green-50 correct-animation',
                         isSelected && !isCorrect && 'border-red-500 bg-red-50 wrong-animation',
                         !isSelected && isCorrectAnswer && selectedAnswer !== null && 'border-green-500 bg-green-50'
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-800">{option}</span>
-                        {isSelected && (
-                          <span className={isCorrect ? 'text-green-500' : 'text-red-500'}>
-                            {isCorrect ? '✓' : '✗'}
-                          </span>
-                        )}
-                      </div>
-                      <SpeechButton text={option} size="sm" className="mr-2" />
-                      <RecordButton targetText={option} size="sm" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectAnswer(option)}
+                        disabled={selectedAnswer !== null}
+                        className="text-left w-full"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-800">{option}</span>
+                          {isSelected && (
+                            <span className={isCorrect ? 'text-green-500' : 'text-red-500'}>
+                              {isCorrect ? '✓' : '✗'}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                      
+                      {/* 独立的听按钮 - 与选项操作分开 */}
+                      {selectedAnswer === null && (
+                        <div className="flex items-center gap-2">
+                          <SpeechButton text={option} size="sm" />
+                        </div>
+                      )}
+                    </div>
                   );
                 })
               )}

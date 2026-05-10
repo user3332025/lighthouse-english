@@ -4,7 +4,6 @@ import { Volume2 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { GameHeader } from '@/components/ProgressBar';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton } from '@/components/RecordButton';
 import { PetModal } from '@/components/PetModal';
 import { WrongAnswerEncourageOverlay } from '@/components/WrongAnswerEncourageOverlay';
 import { MATCHING_QUESTIONS } from '@/data/questions';
@@ -394,10 +393,8 @@ export function MatchingPage() {
         return (
           <div className="text-center mb-6">
             <p className="text-gray-600 mb-2">这是什么动物？</p>
-            <div className="inline-block bg-blue-50 px-6 py-3 rounded-xl">
+            <div className="inline-block bg-blue-50 px-8 py-4 rounded-xl">
               <span className="text-3xl font-bold text-blue-700">{currentQuestion.word}</span>
-              <SpeechButton text={currentQuestion.word} size="sm" className="ml-2" />
-              <RecordButton targetText={currentQuestion.word} size="sm" className="ml-2" />
             </div>
           </div>
         );
@@ -427,6 +424,8 @@ export function MatchingPage() {
     }
   };
 
+
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
       <Header showBack title="拼写匹配" />
@@ -448,29 +447,46 @@ export function MatchingPage() {
               const isSelected = selectedAnswer === option;
 
               return (
-                <button
+                <div
                   key={index}
-                  onClick={() => handleSelectAnswer(option)}
-                  disabled={selectedAnswer !== null}
-                  type="button"
                   className={cn(
-                    'rounded-2xl flex items-center justify-center border-4 transition-all duration-300',
+                    'rounded-2xl flex flex-col items-center gap-3 border-4 transition-all duration-300',
                     optionsAreWords
-                      ? 'min-h-[5.5rem] px-3 py-4'
-                      : 'aspect-square text-5xl',
-                    selectedAnswer === null && 'bg-green-50 border-green-200 hover:border-green-400 hover:scale-105',
+                      ? 'px-4 py-4'
+                      : 'aspect-square justify-center',
+                    selectedAnswer === null && 'bg-green-50 border-green-200',
                     isSelected && isCorrect && 'bg-green-100 border-green-500 correct-animation',
                     isSelected && !isCorrect && 'bg-amber-50 border-amber-500 wrong-soft-shake'
                   )}
                 >
-                  {optionsAreWords ? (
-                    <span className="text-lg sm:text-xl font-bold text-gray-800 text-center leading-snug break-words">
-                      {option}
-                    </span>
-                  ) : (
-                    <span>{option}</span>
+                  <button
+                    onClick={() => handleSelectAnswer(option)}
+                    disabled={selectedAnswer !== null}
+                    type="button"
+                    className={cn(
+                      'w-full flex items-center justify-center transition-all',
+                      optionsAreWords
+                        ? 'min-h-[3rem]'
+                        : 'text-5xl',
+                      selectedAnswer === null && 'hover:scale-105'
+                    )}
+                  >
+                    {optionsAreWords ? (
+                      <span className="text-lg sm:text-xl font-bold text-gray-800 text-center leading-snug break-words">
+                        {option}
+                      </span>
+                    ) : (
+                      <span>{option}</span>
+                    )}
+                  </button>
+                  
+                  {/* 独立的听按钮 - 与选项操作分开 */}
+                  {optionsAreWords && selectedAnswer === null && (
+                    <div className="flex items-center gap-2">
+                      <SpeechButton text={option} size="sm" />
+                    </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>

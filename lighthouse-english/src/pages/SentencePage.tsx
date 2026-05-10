@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { GameHeader } from '@/components/ProgressBar';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton } from '@/components/RecordButton';
 import { PetModal } from '@/components/PetModal';
 import { TextbookSemesterPicker } from '@/components/TextbookSemesterPicker';
 import { TextbookUnitPicker } from '@/components/TextbookUnitPicker';
@@ -265,34 +264,41 @@ export function SentencePage() {
           </div>
 
           {/* 选项 */}
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-4">
             {currentQuestion.options.map((option, index) => {
               const isSelected = selectedAnswer === option;
 
               return (
-                <button
+                <div
                   key={index}
-                  onClick={() => handleSelectAnswer(option)}
-                  disabled={selectedAnswer !== null}
                   className={cn(
-                    'p-4 rounded-xl border-2 text-left transition-all',
-                    'flex items-center justify-between gap-3',
+                    'p-4 rounded-xl border-2 transition-all',
+                    'flex flex-col gap-3',
                     !selectedAnswer && 'hover:border-primary-400 hover:bg-orange-50',
                     selectedAnswer === null && 'border-orange-200 bg-white',
                     isSelected && isCorrect && 'border-green-500 bg-green-50 correct-animation',
                     isSelected && !isCorrect && 'wrong-soft-shake'
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-800">{option}</span>
-                    {isSelected && isCorrect && <span className="text-green-500 text-xl">✓</span>}
-                    {isSelected && !isCorrect && <span className="text-amber-600 text-xl">?</span>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <SpeechButton text={option} size="sm" />
-                    <RecordButton targetText={option} size="sm" />
-                  </div>
-                </button>
+                  <button
+                    onClick={() => handleSelectAnswer(option)}
+                    disabled={selectedAnswer !== null}
+                    className="text-left w-full"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-800">{option}</span>
+                      {isSelected && isCorrect && <span className="text-green-500 text-xl">✓</span>}
+                      {isSelected && !isCorrect && <span className="text-amber-600 text-xl">?</span>}
+                    </div>
+                  </button>
+                  
+                  {/* 独立的听按钮 - 与选项操作分开 */}
+                  {selectedAnswer === null && (
+                    <div className="flex items-center gap-2">
+                      <SpeechButton text={option} size="sm" />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -312,7 +318,7 @@ export function SentencePage() {
 
         {/* 小提示 */}
         <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center text-sm text-yellow-700">
-          💡 题目不会自动朗读；点情景旁喇叭听中文，点选项旁喇叭听该句英文
+          💡 点击选项下方的喇叭按钮听发音
         </div>
       </div>
 

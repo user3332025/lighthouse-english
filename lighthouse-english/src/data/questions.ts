@@ -455,6 +455,150 @@ export const SENTENCE_QUESTIONS = [
   },
 ];
 
+// 对话练习数据 - 包含完整对话内容和理解练习题
+export const DIALOGUES_DATA = [
+  {
+    id: 'greeting',
+    title: '问候对话',
+    icon: '👋',
+    dialogues: [
+      { speaker: 'A', name: '小明', text: 'Good morning, teacher!' },
+      { speaker: 'B', name: '老师', text: 'Good morning, Xiao Ming!' },
+      { speaker: 'A', name: '小明', text: 'How are you today?' },
+      { speaker: 'B', name: '老师', text: 'I am fine, thank you. And you?' },
+      { speaker: 'A', name: '小明', text: 'I am fine too.' },
+    ],
+    questions: [
+      {
+        question: '小明早上见到老师说什么？',
+        options: ['Good morning!', 'Good afternoon!', 'Good evening!'],
+        answer: 0,
+      },
+      {
+        question: '老师问小明什么？',
+        options: ['How are you?', 'What is your name?', 'Where are you from?'],
+        answer: 0,
+      },
+    ],
+  },
+  {
+    id: 'introduction',
+    title: '自我介绍',
+    icon: '👤',
+    dialogues: [
+      { speaker: 'A', name: '小红', text: 'Hello! My name is Xiao Hong.' },
+      { speaker: 'B', name: '小刚', text: 'Hi! My name is Xiao Gang.' },
+      { speaker: 'A', name: '小红', text: 'Nice to meet you!' },
+      { speaker: 'B', name: '小刚', text: 'Nice to meet you too!' },
+    ],
+    questions: [
+      {
+        question: '小红的名字是什么？',
+        options: ['Xiao Hong', 'Xiao Gang', 'Li Ming'],
+        answer: 0,
+      },
+      {
+        question: '他们见面说什么？',
+        options: ['Nice to meet you!', 'Goodbye!', 'Good morning!'],
+        answer: 0,
+      },
+    ],
+  },
+  {
+    id: 'classroom',
+    title: '课堂对话',
+    icon: '🏫',
+    dialogues: [
+      { speaker: 'A', name: '老师', text: 'Open your books, please.' },
+      { speaker: 'B', name: '学生', text: 'Yes, teacher.' },
+      { speaker: 'A', name: '老师', text: 'Read page 15.' },
+      { speaker: 'B', name: '学生', text: 'OK!' },
+    ],
+    questions: [
+      {
+        question: '老师让学生做什么？',
+        options: ['Open books', 'Close books', 'Stand up'],
+        answer: 0,
+      },
+      {
+        question: '学生要读第几页？',
+        options: ['Page 15', 'Page 5', 'Page 25'],
+        answer: 0,
+      },
+    ],
+  },
+  {
+    id: 'lunch',
+    title: '午餐时间',
+    icon: '🍽️',
+    dialogues: [
+      { speaker: 'A', name: '妈妈', text: 'What would you like for lunch?' },
+      { speaker: 'B', name: '小明', text: 'I would like rice and chicken.' },
+      { speaker: 'A', name: '妈妈', text: 'OK! Enjoy your meal.' },
+      { speaker: 'B', name: '小明', text: 'Thank you, Mom!' },
+    ],
+    questions: [
+      {
+        question: '小明午餐想吃什么？',
+        options: ['Rice and chicken', 'Noodles', 'Bread'],
+        answer: 0,
+      },
+      {
+        question: '小明对妈妈说什么？',
+        options: ['Thank you!', 'Goodbye!', 'Hello!'],
+        answer: 0,
+      },
+    ],
+  },
+  {
+    id: 'shopping',
+    title: '购物对话',
+    icon: '🛒',
+    dialogues: [
+      { speaker: 'A', name: '店员', text: 'Can I help you?' },
+      { speaker: 'B', name: '顾客', text: 'Yes, I want a pencil.' },
+      { speaker: 'A', name: '店员', text: 'Here you are.' },
+      { speaker: 'B', name: '顾客', text: 'How much is it?' },
+      { speaker: 'A', name: '店员', text: 'It is two yuan.' },
+    ],
+    questions: [
+      {
+        question: '顾客想买什么？',
+        options: ['A pencil', 'A book', 'A ruler'],
+        answer: 0,
+      },
+      {
+        question: '铅笔多少钱？',
+        options: ['Two yuan', 'Three yuan', 'Five yuan'],
+        answer: 0,
+      },
+    ],
+  },
+  {
+    id: 'weather',
+    title: '天气对话',
+    icon: '☀️',
+    dialogues: [
+      { speaker: 'A', name: '爸爸', text: "How's the weather today?" },
+      { speaker: 'B', name: '小明', text: 'It is sunny and warm.' },
+      { speaker: 'A', name: '爸爸', text: 'Great! Let us go to the park.' },
+      { speaker: 'B', name: '小明', text: 'Wonderful!' },
+    ],
+    questions: [
+      {
+        question: '今天天气怎么样？',
+        options: ['Sunny', 'Rainy', 'Snowy'],
+        answer: 0,
+      },
+      {
+        question: '他们要去哪里？',
+        options: ['Park', 'School', 'Home'],
+        answer: 0,
+      },
+    ],
+  },
+];
+
 // 对话练习题目
 export const DIALOGUE_QUESTIONS = [
   // 基础问候

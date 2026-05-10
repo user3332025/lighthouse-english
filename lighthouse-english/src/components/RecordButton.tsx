@@ -263,7 +263,7 @@ export function RecordButton({
         setEncouragementTier('retry');
         setScore(null);
         setFeedback(
-          '无法连接语音识别服务（Chrome/Edge 常走在线引擎）。请检查网络；若环境限制访问外网，可换网络、尝试 Edge，或使用 https / localhost 打开本站。'
+          '网络环境限制：无法连接语音识别服务。请尝试使用 Edge 浏览器，或在网络环境允许时重试。'
         );
         setShowResult(true);
         return;

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton } from '@/components/RecordButton';
 import { PHONETIC_DATA } from '@/data/questions';
 import { cn } from '@/lib/utils';
 
@@ -107,7 +106,6 @@ export function PhoneticPage() {
                   <span className="text-2xl font-bold text-primary-700">{word}</span>
                   <div className="flex items-center gap-2">
                     <SpeechButton text={word} size="lg" />
-                    <RecordButton targetText={word} size="md" />
                   </div>
                 </div>
               ))}
