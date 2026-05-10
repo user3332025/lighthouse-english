@@ -242,10 +242,14 @@ export function useUserData() {
 
   const addMarkedWord = useCallback((word: string, textbookId: string, unitId: number, meaning: string, phonetic: string) => {
     setUserData(prev => {
-      const existing = prev.markedWords.find(
+      // 先清理旧格式的数据
+      const cleanedMarkedWords = prev.markedWords.filter(w => !(w as any).wordId);
+      
+      const existing = cleanedMarkedWords.find(
         w => w.word === word && w.textbookId === textbookId && w.unitId === unitId
       );
       if (existing) return prev;
+      
       const newMarkedWord: MarkedWord = {
         word,
         textbookId,
@@ -256,7 +260,7 @@ export function useUserData() {
       };
       return saveData({
         ...prev,
-        markedWords: [...prev.markedWords, newMarkedWord],
+        markedWords: [...cleanedMarkedWords, newMarkedWord],
       });
     });
   }, [saveData]);
@@ -265,17 +269,27 @@ export function useUserData() {
     setUserData(prev => {
       return saveData({
         ...prev,
-        markedWords: prev.markedWords.filter(
-          w => !(w.word === word && w.textbookId === textbookId && w.unitId === unitId)
-        ),
+        markedWords: prev.markedWords.filter(w => {
+          // 兼容旧格式（只有wordId的情况）
+          if ((w as any).wordId) {
+            return (w as any).wordId !== word;
+          }
+          // 新格式检查
+          return !(w.word === word && w.textbookId === textbookId && w.unitId === unitId);
+        }),
       });
     });
   }, [saveData]);
 
   const isWordMarked = useCallback((word: string, textbookId: string, unitId: number) => {
-    return userData.markedWords.some(
-      w => w.word === word && w.textbookId === textbookId && w.unitId === unitId
-    );
+    return userData.markedWords.some(w => {
+      // 兼容旧格式（只有wordId的情况）
+      if ((w as any).wordId) {
+        return (w as any).wordId === word;
+      }
+      // 新格式检查
+      return w.word === word && w.textbookId === textbookId && w.unitId === unitId;
+    });
   }, [userData.markedWords]);
 
   // 领养宠物

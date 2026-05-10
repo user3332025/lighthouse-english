@@ -8,7 +8,7 @@ import { SentencePage } from '@/pages/SentencePage';
 import { ReviewPage } from '@/pages/ReviewPage';
 import { DialoguePage } from '@/pages/DialoguePage';
 import { GamesPage } from '@/pages/GamesPage';
-import { ListeningPage } from '@/pages/ListeningPage';
+// import { ListeningPage } from '@/pages/ListeningPage';
 import { MatchingPage } from '@/pages/MatchingPage';
 import { OrderingPage } from '@/pages/OrderingPage';
 import { PetPage } from '@/pages/PetPage';
@@ -54,7 +54,7 @@ function App() {
         <Route path="/review" element={<ReviewPage />} />
         <Route path="/dialogue" element={<DialoguePage />} />
         <Route path="/games" element={<GamesPage />} />
-        <Route path="/games/listening" element={<ListeningPage />} />
+        {/* <Route path="/games/listening" element={<ListeningPage />} /> */}
         <Route path="/games/matching" element={<MatchingPage />} />
         <Route path="/games/ordering" element={<OrderingPage />} />
         <Route path="/pet" element={<PetPage />} />

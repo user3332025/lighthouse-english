@@ -144,6 +144,8 @@ function WordListView({
   const [audioData, setAudioData] = useState<Uint8Array | null>(null);
   const [volumeLevel, setVolumeLevel] = useState(0);
   const [isPlayingOwn, setIsPlayingOwn] = useState(false);
+  const [isMarkedLocal, setIsMarkedLocal] = useState<boolean | null>(null);
+  const [forceUpdate, setForceUpdate] = useState(0); // 添加一个强制更新的状态
   const { speakEnglish, stop: stopSpeech, isSupported: speechSupported } = useSpeech();
   const { userData, addMarkedWord, removeMarkedWord, isWordMarked, markWordLearned } = useUserData();
 
@@ -153,7 +155,12 @@ function WordListView({
 
   const currentWord = unit.words[currentIndex];
   
-  const isMarked = isWordMarked(currentWord.word, textbookId, unit.id);
+  // 初始化当前单词的标记状态
+  useEffect(() => {
+    setIsMarkedLocal(isWordMarked(currentWord.word, textbookId, unit.id));
+  }, [currentWord.word, textbookId, unit.id, isWordMarked, currentIndex, forceUpdate]);
+  
+  const isMarked = isMarkedLocal ?? isWordMarked(currentWord.word, textbookId, unit.id);
 
   useEffect(() => {
     recorderRef.current = new AudioRecorder({
@@ -181,9 +188,12 @@ function WordListView({
   const toggleMarkWord = () => {
     if (isMarked) {
       removeMarkedWord(currentWord.word, textbookId, unit.id);
+      setIsMarkedLocal(false);
     } else {
       addMarkedWord(currentWord.word, textbookId, unit.id, currentWord.meaning, currentWord.phonetic || '');
+      setIsMarkedLocal(true);
     }
+    setForceUpdate(prev => prev + 1);
   };
 
   // 进入新词：自动朗读标准音（辅助）；录音不再依赖 TTS 回调，避免无声环境下永远无法跟读
@@ -385,6 +395,11 @@ function WordListView({
                         removeMarkedWord(word.word, textbookId, unit.id);
                       } else {
                         addMarkedWord(word.word, textbookId, unit.id, word.meaning, word.phonetic || '');
+                      }
+                      setForceUpdate(prev => prev + 1);
+                      // 如果修改的是当前查看的单词，也更新当前单词的本地状态
+                      if (word.word === currentWord.word) {
+                        setIsMarkedLocal(!isMarked);
                       }
                     }}
                     className={cn(
@@ -618,7 +633,7 @@ function WordListView({
           <button
             onClick={toggleMarkWord}
             className={cn(
-              'px-6 py-3 rounded-full transition-all flex items-center gap-2',
+              'px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2',
               isMarked
                 ? 'bg-green-500 text-white shadow-lg scale-105'
                 : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'

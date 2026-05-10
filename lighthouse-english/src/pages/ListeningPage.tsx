@@ -4,7 +4,7 @@ import { Header } from '@/components/Header';
 import { GameHeader } from '@/components/ProgressBar';
 import { PetModal } from '@/components/PetModal';
 import { useUserData } from '@/hooks/useUserData';
-import { playCorrectSparkle, playButtonClick, resumeAudioContext } from '@/lib/gameSfx';
+import { playCorrectSparkle, resumeAudioContext } from '@/lib/gameSfx';
 import { shuffleArray, pickRandom } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { GRADE_3A, GRADE_3B, type Word } from '@/data/wordLearning';
@@ -193,7 +193,7 @@ export function ListeningPage() {
                 return (
                   <button
                     key={diff}
-                    onClick={() => { playButtonClick(); setSelectedDifficulty(diff); }}
+                    onClick={() => setSelectedDifficulty(diff)}
                     className={cn(
                       'w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4',
                       selectedDifficulty === diff
@@ -215,7 +215,7 @@ export function ListeningPage() {
             </div>
 
             <button
-              onClick={() => { playButtonClick(); startGame(); }}
+              onClick={startGame}
               className="w-full mt-6 py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-warm"
             >
               开始游戏
@@ -257,14 +257,13 @@ export function ListeningPage() {
             </div>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => { playButtonClick(); navigate('/games'); }}
+                onClick={() => navigate('/games')}
                 className="w-full py-3 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600"
               >
                 返回游戏中心
               </button>
               <button
                 onClick={() => {
-                  playButtonClick();
                   setGameOver(false);
                   initializeGame();
                 }}
@@ -274,7 +273,6 @@ export function ListeningPage() {
               </button>
               <button
                 onClick={() => {
-                  playButtonClick();
                   setGameStarted(false);
                   setGameOver(false);
                 }}
@@ -309,29 +307,18 @@ export function ListeningPage() {
         />
 
         <div className="mt-4 bg-white rounded-2xl p-6 shadow-warm">
-          <div className="flex items-center justify-between mb-4">
+          <div className="text-center mb-6">
             <span className="inline-block bg-gray-100 px-3 py-1 rounded-full text-sm text-gray-600">
               {config.emoji} {config.label} · {config.size}×{config.size}
             </span>
-            <button
-              onClick={() => {
-                playButtonClick();
-                setGameStarted(false);
-              }}
-              className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-full text-sm hover:bg-gray-200 transition-colors"
-            >
-              更换难度
-            </button>
-          </div>
-          <div className="text-center mb-6">
-            <p className="text-gray-600">点击卡片翻转，找到配对的中英文词汇</p>
+            <p className="text-gray-600 mt-4">点击卡片翻转，找到配对的中英文词汇</p>
           </div>
 
           <div className={cn('grid gap-3', config.gridCols)}>
             {cards.map((card) => (
               <button
                 key={card.id}
-                onClick={() => { playButtonClick(); handleCardClick(card); }}
+                onClick={() => handleCardClick(card)}
                 disabled={card.isMatched || card.isFlipped || isChecking || selectedCards.length >= 2}
                 className={cn(
                   'aspect-square rounded-xl border-2 transition-all duration-300 transform',

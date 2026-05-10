@@ -261,6 +261,12 @@ export function DialoguePage() {
                 })}
               </div>
               
+              {answeredQuestions[i] && !wrongQuestions.has(i) && (
+                <div className="mt-4 p-4 rounded-xl text-center bg-green-100 text-green-800">
+                  <p className="font-bold text-lg">✓ 太棒了！你真是个英语小天才！</p>
+                </div>
+              )}
+              
               {wrongQuestions.has(i) && (
                 <div className="mt-4 flex items-center justify-center gap-3 bg-orange-100 rounded-xl p-4">
                   <span className="text-3xl">🐰</span>

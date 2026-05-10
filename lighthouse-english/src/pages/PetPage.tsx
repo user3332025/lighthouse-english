@@ -625,51 +625,64 @@ export function PetPage() {
             </button>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">👑 装饰配件</span>
-                <button 
-                  onClick={() => setShowAccessorySelector(true)}
-                  className="text-xs text-purple-600 hover:text-purple-700"
-                >
-                  更换
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {activePet?.accessory ? (
-                  <div className="bg-purple-50 rounded-lg p-2 text-center">
-                    <span className="text-2xl">{findItemById(activePet.accessory)?.emoji}</span>
-                    <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.accessory)?.name}</div>
-                  </div>
-                ) : (
-                  <div className="text-gray-400 text-sm">暂无装饰</div>
-                )}
-              </div>
+          {!activePet ? (
+            <div className="text-center py-4 text-gray-500">
+              <div className="text-4xl mb-2">🐾</div>
+              <p className="text-sm">领养宠物后可以开始装扮！</p>
+              <button
+                onClick={() => navigate('/pet')}
+                className="mt-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
+                前往领养 →
+              </button>
             </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">👑 装饰配件</span>
+                  <button 
+                    onClick={() => setShowAccessorySelector(true)}
+                    className="text-xs text-purple-600 hover:text-purple-700"
+                  >
+                    更换
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activePet?.accessory ? (
+                    <div className="bg-purple-50 rounded-lg p-2 text-center">
+                      <span className="text-2xl">{findItemById(activePet.accessory)?.emoji}</span>
+                      <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.accessory)?.name}</div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm">暂无装饰</div>
+                  )}
+                </div>
+              </div>
 
-            <div className="bg-white rounded-xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">🌸 背景装饰</span>
-                <button 
-                  onClick={() => setShowBackgroundSelector(true)}
-                  className="text-xs text-purple-600 hover:text-purple-700"
-                >
-                  更换
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {activePet?.background ? (
-                  <div className="bg-green-50 rounded-lg p-2 text-center">
-                    <span className="text-2xl">{findItemById(activePet.background)?.emoji}</span>
-                    <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.background)?.name}</div>
-                  </div>
-                ) : (
-                  <div className="text-gray-400 text-sm">暂无背景</div>
-                )}
+              <div className="bg-white rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">🌸 背景装饰</span>
+                  <button 
+                    onClick={() => setShowBackgroundSelector(true)}
+                    className="text-xs text-purple-600 hover:text-purple-700"
+                  >
+                    更换
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activePet?.background ? (
+                    <div className="bg-green-50 rounded-lg p-2 text-center">
+                      <span className="text-2xl">{findItemById(activePet.background)?.emoji}</span>
+                      <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.background)?.name}</div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm">暂无背景</div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* 装饰配件选择器 */}
