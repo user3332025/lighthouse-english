@@ -727,9 +727,9 @@ export function ReviewPage() {
               <button
                 onClick={toggleMarkWord}
                 className={cn(
-                  'absolute top-0 right-0 p-2 rounded-full transition-all',
+                  'absolute top-0 right-0 p-2 rounded-full transition-all duration-200',
                   isMarked
-                    ? 'bg-yellow-400 text-white'
+                    ? 'bg-green-500 text-white shadow-lg scale-105'
                     : 'bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-500'
                 )}
               >

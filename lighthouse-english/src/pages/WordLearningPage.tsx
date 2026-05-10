@@ -388,9 +388,9 @@ function WordListView({
                       }
                     }}
                     className={cn(
-                      'p-2 rounded-full transition-colors',
+                      'p-2 rounded-full transition-all duration-200',
                       isWordMarked(word.word, textbookId, unit.id)
-                        ? 'bg-yellow-400 text-white'
+                        ? 'bg-green-500 text-white shadow-lg scale-105'
                         : 'bg-gray-200 text-gray-500 hover:bg-yellow-100'
                     )}
                   >

@@ -16,6 +16,38 @@ const PETS: { type: PetType; name: string; emoji: string; description: string }[
   { type: 'fox', name: '小狐狸', emoji: '🦊', description: '聪明伶俐，毛色漂亮' },
 ];
 
+const MOOD_MESSAGES = [
+  { emoji: '✨', text: '好开心呀！' },
+  { emoji: '💕', text: '我喜欢你！' },
+  { emoji: '😊', text: '心情美美哒~' },
+  { emoji: '🎉', text: '太棒啦！' },
+  { emoji: '🥰', text: '抱抱~' },
+  { emoji: '😘', text: '亲一个~' },
+  { emoji: '🌟', text: '我是最棒的！' },
+  { emoji: '🎀', text: '乖巧可爱~' },
+  { emoji: '🦋', text: '飞舞的感觉！' },
+  { emoji: '🍭', text: '甜甜的心情~' },
+  { emoji: '🌈', text: '彩虹般快乐！' },
+  { emoji: '🎈', text: '飘飘然~' },
+  { emoji: '🤗', text: '好温暖呀！' },
+  { emoji: '🎶', text: '啦啦啦~' },
+  { emoji: '🌸', text: '花开的心情~' },
+  { emoji: '☀️', text: '阳光真好！' },
+  { emoji: '💫', text: '闪闪发光！' },
+  { emoji: '🐾', text: '想出去玩！' },
+  { emoji: '🍖', text: '肚子饿了...' },
+  { emoji: '🎮', text: '陪我玩嘛~' },
+  { emoji: '🤭', text: '嘿嘿~' },
+  { emoji: '💖', text: '心里甜甜的~' },
+  { emoji: '🌻', text: '向阳而生！' },
+  { emoji: '🦊', text: '机灵鬼~' },
+  { emoji: '🐻', text: '暖暖的很贴心~' },
+  { emoji: '🐰', text: '蹦蹦跳跳~' },
+  { emoji: '😺', text: '喵呜~' },
+  { emoji: '🐕', text: '汪汪！' },
+  { emoji: '🌙', text: '月色真美~' },
+];
+
 export function PetPage() {
   const navigate = useNavigate();
   const {
@@ -45,6 +77,8 @@ export function PetPage() {
   const [isPetClicked, setIsPetClicked] = useState(false);
   const [petMood, setPetMood] = useState<'normal' | 'happy' | 'excited'>('normal');
   const [currentAction, setCurrentAction] = useState<string | null>(null);
+  const [showMoodPopup, setShowMoodPopup] = useState(false);
+  const [currentMood, setCurrentMood] = useState<{ emoji: string; text: string } | null>(null);
 
   const activePet = getActivePet();
 
@@ -149,6 +183,11 @@ export function PetPage() {
   const handlePetClick = () => {
     setIsPetClicked(true);
     setPetMood('excited');
+    
+    const randomMood = MOOD_MESSAGES[Math.floor(Math.random() * MOOD_MESSAGES.length)];
+    setCurrentMood(randomMood);
+    setShowMoodPopup(true);
+    
     setTimeout(() => {
       setIsPetClicked(false);
       setPetMood('happy');
@@ -156,6 +195,9 @@ export function PetPage() {
     setTimeout(() => {
       setPetMood('normal');
     }, 2000);
+    setTimeout(() => {
+      setShowMoodPopup(false);
+    }, 2500);
   };
 
   const getPetEmoji = (pet: Pet) => {
@@ -327,7 +369,7 @@ export function PetPage() {
                     activePet?.level === 4 && 'w-48 h-48 text-9xl border-purple-300 pet-aura-soft pet-wiggle',
                     activePet?.level >= 5 && 'w-52 h-52 text-9xl sm:text-[150px] border-amber-400 pet-aura-strong pet-wiggle',
                     feedSuccess && 'animate-bounce scale-110',
-                    isPetClicked && 'scale-115',
+                    isPetClicked && 'animate-pet-click',
                     playSuccess && 'animate-spin-slow'
                   )}
                 >
@@ -762,7 +804,7 @@ export function PetPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => navigate('/')}
             className="bg-white rounded-xl p-4 shadow-warm hover:shadow-warm-lg transition-all flex items-center gap-3"
@@ -790,6 +832,66 @@ export function PetPage() {
           </button>
         </div>
 
+        {/* 测试模式入口 */}
+        <div className="bg-blue-50 rounded-2xl p-4 shadow-warm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🧪</span>
+              <div>
+                <h3 className="font-bold text-gray-800">测试模式</h3>
+                <p className="text-xs text-gray-500">领养新宠物测试不同等级</p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isTestMode}
+                onChange={(e) => setIsTestMode(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+          </div>
+
+          {isTestMode && (
+            <div className="space-y-3 mt-4 pt-4 border-t border-blue-100">
+              <div className="text-sm font-medium text-gray-700">选择测试等级：</div>
+              <div className="grid grid-cols-5 gap-2">
+                {PET_LEVELS.map((level) => (
+                  <button
+                    key={level.level}
+                    onClick={() => setTestPetLevel(level.level)}
+                    className={cn(
+                      'p-2 rounded-xl text-center transition-all',
+                      testPetLevel === level.level
+                        ? 'bg-blue-500 text-white ring-2 ring-blue-300 ring-offset-2'
+                        : 'bg-white hover:bg-blue-100 text-gray-700'
+                    )}
+                  >
+                    <div className="text-xl mb-1">{level.appearance}</div>
+                    <div className="text-xs font-bold">Lv{level.level}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-blue-600">
+                当前：Lv{testPetLevel} {PET_LEVELS.find(l => l.level === testPetLevel)?.name}
+              </div>
+              <button
+                onClick={() => {
+                  if (userData.petHome.pets.length > 0) {
+                    const confirm = window.confirm(`确定要领养新的 Lv${testPetLevel} 宠物吗？当前有 ${userData.petHome.pets.length} 只宠物。`);
+                    if (!confirm) return;
+                  }
+                  navigate('/pet');
+                }}
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold hover:scale-105 transition-all"
+              >
+                🐾 前往领养 Lv{testPetLevel} 宠物
+              </button>
+            </div>
+          )}
+        </div>
+
         {showLevelUp && levelUpData && (
           <PetModal
             isOpen={showLevelUp}
@@ -813,6 +915,28 @@ export function PetPage() {
         {playSuccess && (
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-pink-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce">
             🎮 玩耍开心！宠物很快乐~
+          </div>
+        )}
+
+        {showMoodPopup && currentMood && (
+          <div className="fixed left-1/2 top-1/3 z-50" style={{ transform: 'translateX(-50%)' }}>
+            <div className="relative">
+              <div className="bg-gradient-to-br from-pink-400 via-purple-400 to-indigo-400 text-white px-8 py-4 rounded-3xl shadow-2xl animate-mood-pop">
+                <div className="absolute -top-6 left-1/2 text-6xl animate-bounce" style={{ transform: 'translateX(-50%)' }}>
+                  {currentMood.emoji}
+                </div>
+                <div className="pt-6 text-center">
+                  <div className="text-2xl font-bold mb-2 drop-shadow-lg">
+                    {currentMood.text}
+                  </div>
+                  <div className="flex justify-center gap-1 mt-2">
+                    <span className="text-lg">✨</span>
+                    <span className="text-lg animate-pulse">💕</span>
+                    <span className="text-lg">✨</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

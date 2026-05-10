@@ -240,32 +240,42 @@ export function useUserData() {
     });
   }, [saveData]);
 
-  const addMarkedWord = useCallback((word: MarkedWord) => {
+  const addMarkedWord = useCallback((word: string, textbookId: string, unitId: number, meaning: string, phonetic: string) => {
     setUserData(prev => {
       const existing = prev.markedWords.find(
-        w => w.wordId === word.wordId
+        w => w.word === word && w.textbookId === textbookId && w.unitId === unitId
       );
       if (existing) return prev;
+      const newMarkedWord: MarkedWord = {
+        word,
+        textbookId,
+        unitId,
+        markedAt: Date.now(),
+        meaning,
+        phonetic
+      };
       return saveData({
         ...prev,
-        markedWords: [...prev.markedWords, word],
+        markedWords: [...prev.markedWords, newMarkedWord],
       });
     });
   }, [saveData]);
 
-  const removeMarkedWord = useCallback((wordId: string) => {
+  const removeMarkedWord = useCallback((word: string, textbookId: string, unitId: number) => {
     setUserData(prev => {
       return saveData({
         ...prev,
         markedWords: prev.markedWords.filter(
-          w => w.wordId !== wordId
+          w => !(w.word === word && w.textbookId === textbookId && w.unitId === unitId)
         ),
       });
     });
   }, [saveData]);
 
-  const isWordMarked = useCallback((wordId: string) => {
-    return userData.markedWords.some(w => w.wordId === wordId);
+  const isWordMarked = useCallback((word: string, textbookId: string, unitId: number) => {
+    return userData.markedWords.some(
+      w => w.word === word && w.textbookId === textbookId && w.unitId === unitId
+    );
   }, [userData.markedWords]);
 
   // 领养宠物
