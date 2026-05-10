@@ -1,4 +1,3 @@
-
 /* eslint-disable @typescript-eslint/no-explicit-any -- Web Speech API 各浏览器类型不完整 */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Pause, Play, StopCircle, ArrowRight, RotateCcw, Volume2, VolumeX } from 'lucide-react';

@@ -5,10 +5,29 @@ export interface AudioComparisonResult {
   timestamps: number[];
   recommendations: string[];
   recognizedText?: string;
+  pronunciationScore?: number;
+  fluencyScore?: number;
+}
+
+export interface RecognitionConfig {
+  language?: string;
+  continuous?: boolean;
+  interimResults?: boolean;
+  maxAlternatives?: number;
 }
 
 export class AudioComparator {
   private sampleRate = 44100;
+  private recognitionConfig: RecognitionConfig = {
+    language: 'en-US',
+    continuous: false,
+    interimResults: false,
+    maxAlternatives: 3
+  };
+
+  constructor(config?: Partial<RecognitionConfig>) {
+    this.recognitionConfig = { ...this.recognitionConfig, ...config };
+  }
 
   private async recognizeSpeech(audioBlob: Blob): Promise<string> {
     return new Promise((resolve) => {
@@ -21,49 +40,74 @@ export class AudioComparator {
       }
 
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.lang = 'en-US';
-
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onloadedmetadata = () => {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const audioContext = new AudioContextClass();
-        
-        audioContext.decodeAudioData(audioBlob.arrayBuffer()).then((audioBuffer) => {
-          const source = audioContext.createBufferSource();
-          source.buffer = audioBuffer;
-          
-          const mediaStreamDestination = audioContext.createMediaStreamDestination();
-          source.connect(mediaStreamDestination);
-          
-          const stream = mediaStreamDestination.stream;
-          (recognition as any).stream = stream;
-          
-          recognition.start();
-        }).catch(() => {
-          URL.revokeObjectURL(audioUrl);
-          resolve('');
-        });
-      };
+      recognition.continuous = this.recognitionConfig.continuous!;
+      recognition.interimResults = this.recognitionConfig.interimResults!;
+      recognition.maxAlternatives = this.recognitionConfig.maxAlternatives!;
+      recognition.lang = this.recognitionConfig.language!;
+      recognition.timeout = 5000;
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0]?.transcript || '';
-        URL.revokeObjectURL(audioUrl);
-        resolve(transcript.trim());
+        let bestTranscript = '';
+        let highestConfidence = 0;
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          for (let j = 0; j < result.length; j++) {
+            const transcript = result[j].transcript;
+            const confidence = result[j].confidence || 0;
+            
+            if (confidence > highestConfidence) {
+              highestConfidence = confidence;
+              bestTranscript = transcript;
+            }
+          }
+        }
+        
+        resolve(bestTranscript.trim());
       };
 
-      recognition.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition error:', event.error);
         resolve('');
       };
 
       recognition.onend = () => {
-        URL.revokeObjectURL(audioUrl);
+        // 识别结束但没有结果时也返回空字符串
       };
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      fetch(audioUrl)
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          const audioContext = new AudioContextClass();
+          
+          audioContext.decodeAudioData(arrayBuffer)
+            .then((audioBuffer: AudioBuffer) => {
+              const source = audioContext.createBufferSource();
+              source.buffer = audioBuffer;
+              
+              const mediaStreamDestination = audioContext.createMediaStreamDestination();
+              source.connect(mediaStreamDestination);
+              
+              const stream = mediaStreamDestination.stream;
+              (recognition as any).stream = stream;
+              
+              recognition.start();
+              
+              source.start();
+            })
+            .catch(() => {
+              URL.revokeObjectURL(audioUrl);
+              audioContext.close();
+              resolve('');
+            });
+        })
+        .catch(() => {
+          URL.revokeObjectURL(audioUrl);
+          resolve('');
+        });
     });
   }
 
@@ -96,6 +140,72 @@ export class AudioComparator {
     return 1 - matrix[len1][len2] / maxLen;
   }
 
+  private calculateWordSimilarity(str1: string, str2: string): number {
+    const words1 = str1.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
+    const words2 = str2.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
+    
+    if (words1.length === 0 || words2.length === 0) return 0;
+    
+    const matchedWords = new Set<string>();
+    
+    for (const word1 of words1) {
+      for (const word2 of words2) {
+        if (this.calculateTextSimilarity(word1, word2) >= 0.8) {
+          matchedWords.add(word1);
+        }
+      }
+    }
+    
+    const precision = matchedWords.size / words1.length;
+    const recall = matchedWords.size / words2.length;
+    
+    if (precision + recall === 0) return 0;
+    
+    return 2 * precision * recall / (precision + recall);
+  }
+
+  private calculateWeightedSimilarity(recognizedText: string, targetText: string): number {
+    const exactMatch = this.calculateTextSimilarity(recognizedText, targetText);
+    const wordMatch = this.calculateWordSimilarity(recognizedText, targetText);
+    
+    return (exactMatch * 0.6 + wordMatch * 0.4);
+  }
+
+  private analyzePronunciationQuality(audioBuffer: AudioBuffer): number {
+    const channelData = audioBuffer.getChannelData(0);
+    let totalEnergy = 0;
+    let zeroCrossings = 0;
+    
+    for (let i = 0; i < channelData.length; i++) {
+      totalEnergy += channelData[i] * channelData[i];
+      if (i > 0) {
+        if (channelData[i] * channelData[i - 1] < 0) {
+          zeroCrossings++;
+        }
+      }
+    }
+    
+    const avgEnergy = totalEnergy / channelData.length;
+    const avgZeroCrossings = zeroCrossings / (channelData.length - 1);
+    
+    const energyScore = Math.min(1, avgEnergy * 1000);
+    const clarityScore = Math.min(1, avgZeroCrossings * 2000);
+    
+    return Math.round(((energyScore + clarityScore) / 2) * 100);
+  }
+
+  private analyzeFluency(audioBuffer: AudioBuffer, targetText: string): number {
+    const duration = audioBuffer.duration;
+    const wordCount = targetText.split(/\s+/).length;
+    const expectedDuration = Math.max(wordCount * 0.4, 0.5);
+    
+    const durationRatio = Math.min(1, duration / expectedDuration);
+    const normalizedDuration = Math.abs(duration - expectedDuration) / expectedDuration;
+    const durationScore = Math.max(0, 1 - normalizedDuration);
+    
+    return Math.round(((durationRatio + durationScore) / 2) * 100);
+  }
+
   async compareAudio(
     userAudioUrl: string,
     referenceAudioUrl?: string,
@@ -123,7 +233,7 @@ export class AudioComparator {
       let similarity = 0.3;
       
       if (recognizedText && targetText) {
-        similarity = this.calculateTextSimilarity(recognizedText, targetText);
+        similarity = this.calculateWeightedSimilarity(recognizedText, targetText);
       } else if (referenceAudioData) {
         const refSamples = this.normalizeAudio(referenceAudioData);
         similarity = this.calculateWaveformSimilarity(userSamples, refSamples);
@@ -131,13 +241,24 @@ export class AudioComparator {
         similarity = this.estimateSimilarityFromText(targetText, userAudioData.duration);
       }
 
+      const pronunciationScore = this.analyzePronunciationQuality(userAudioData);
+      const fluencyScore = targetText ? this.analyzeFluency(userAudioData, targetText) : undefined;
+
       const durationMatch = referenceAudioData
         ? this.calculateDurationMatch(userAudioData.duration, referenceAudioData.duration)
-        : 0.7;
+        : targetText ? this.calculateDurationMatch(userAudioData.duration, targetText.split(/\s+/).length * 0.5) : 0.7;
 
       const volumeMatch = this.analyzeVolumeConsistency(userSamples);
 
-      const recommendations = this.generateRecommendations(similarity, durationMatch, volumeMatch, recognizedText, targetText);
+      const recommendations = this.generateRecommendations(
+        similarity, 
+        durationMatch, 
+        volumeMatch, 
+        recognizedText, 
+        targetText,
+        pronunciationScore,
+        fluencyScore
+      );
       const timestamps = this.findSignificantPoints(userSamples);
 
       return {
@@ -146,7 +267,9 @@ export class AudioComparator {
         volumeMatch: Math.round(volumeMatch * 100),
         timestamps,
         recommendations,
-        recognizedText
+        recognizedText,
+        pronunciationScore,
+        fluencyScore
       };
     } catch (error) {
       console.error('Audio comparison error:', error);
@@ -223,16 +346,16 @@ export class AudioComparator {
     const expectedDuration = wordCount * 0.5;
     const durationFactor = Math.max(0.5, 1 - Math.abs(duration - expectedDuration) / expectedDuration);
     
-    if (duration < 1) return 0.3;
-    if (duration < 2) return 0.5;
-    if (duration < 5) return 0.7;
+    if (duration < 0.5) return 0.2;
+    if (duration < 1) return 0.4;
+    if (duration < 3) return 0.6;
     
-    return Math.min(0.9, durationFactor * 0.8 + 0.2);
+    return Math.min(0.85, durationFactor * 0.8 + 0.2);
   }
 
   private calculateDurationMatch(userDuration: number, refDuration: number): number {
     const ratio = Math.min(userDuration, refDuration) / Math.max(userDuration, refDuration);
-    return ratio;
+    return Math.max(0.3, ratio);
   }
 
   private analyzeVolumeConsistency(samples: Float32Array): number {
@@ -252,14 +375,15 @@ export class AudioComparator {
     const variance = volumes.reduce((sum, v) => sum + Math.pow(v - avgVolume, 2), 0) / volumes.length;
     const stdDev = Math.sqrt(variance);
     
-    return Math.max(0, 1 - stdDev * 2);
+    return Math.max(0, Math.min(1, 1 - stdDev * 2));
   }
 
   private findSignificantPoints(samples: Float32Array): number[] {
     const points: number[] = [];
-    const threshold = 0.3;
+    const threshold = 0.25;
     const minGap = samples.length / 20;
     let lastPoint = -minGap;
+    let inSpeech = false;
     
     for (let i = 1; i < samples.length - 1; i++) {
       const current = Math.abs(samples[i]);
@@ -267,12 +391,17 @@ export class AudioComparator {
       const next = Math.abs(samples[i + 1]);
       
       if (current > threshold && current > prev && current > next && i - lastPoint > minGap) {
-        points.push(i / samples.length);
+        if (!inSpeech) {
+          points.push(i / samples.length);
+          inSpeech = true;
+        }
         lastPoint = i;
+      } else if (current < threshold * 0.5) {
+        inSpeech = false;
       }
     }
     
-    return points;
+    return points.slice(0, 10);
   }
 
   private generateRecommendations(
@@ -280,7 +409,9 @@ export class AudioComparator {
     durationMatch: number,
     volumeMatch: number,
     recognizedText?: string,
-    targetText?: string
+    targetText?: string,
+    pronunciationScore?: number,
+    fluencyScore?: number
   ): string[] {
     const recommendations: string[] = [];
     
@@ -288,21 +419,33 @@ export class AudioComparator {
       recommendations.push(`你说的是: "${recognizedText}"`);
     }
     
-    if (similarity < 0.4) {
+    if (similarity < 0.3) {
+      recommendations.push('没有识别到有效语音，请靠近麦克风清晰朗读');
+    } else if (similarity < 0.5) {
       recommendations.push('识别结果与目标差异较大，请尝试更清晰地朗读');
-    } else if (similarity < 0.6) {
-      recommendations.push('发音差异较大，请多听几遍标准发音');
-    } else if (similarity < 0.8) {
-      recommendations.push('不错！注意某些音节的准确性');
+    } else if (similarity < 0.7) {
+      recommendations.push('发音有一些差异，注意某些音节的准确性');
+    } else if (similarity < 0.85) {
+      recommendations.push('不错！继续努力，发音会越来越标准');
     } else {
-      recommendations.push('太棒了！发音非常标准');
+      recommendations.push('太棒了！发音非常标准！');
     }
     
-    if (durationMatch < 0.5) {
-      recommendations.push('语速差异较大，请保持与范例相似的节奏');
+    if (pronunciationScore !== undefined && pronunciationScore < 60) {
+      recommendations.push('语音清晰度较低，建议提高音量或在安静环境中录制');
     }
     
-    if (volumeMatch < 0.5) {
+    if (fluencyScore !== undefined && fluencyScore < 50) {
+      recommendations.push('语速不太稳定，尽量保持均匀的节奏');
+    }
+    
+    if (durationMatch < 0.4) {
+      recommendations.push('语速与目标差异较大，请调整朗读速度');
+    } else if (durationMatch < 0.6) {
+      recommendations.push('语速接近目标，再调整一下节奏');
+    }
+    
+    if (volumeMatch < 0.4) {
       recommendations.push('音量不够稳定，建议保持适中音量');
     }
     

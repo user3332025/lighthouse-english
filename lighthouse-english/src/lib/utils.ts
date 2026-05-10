@@ -31,7 +31,7 @@ export function normalizeOrderingWord(token: string): string {
   return token
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[^a-z0-9]/gi, '')
+    .replace(/[^a-z0-9']/gi, '')
     .trim();
 }
 

@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { Mic, Pause, StopCircle, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { AudioRecorder, Recording, RecordingState } from '../lib/AudioRecorder';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Mic, Pause, Play, StopCircle, RotateCcw, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AudioRecorder, Recording, RecordingState, RecordingQuality } from '../lib/AudioRecorder';
 import { AudioComparator, AudioComparisonResult } from '../lib/AudioComparator';
 import { AudioPlayer } from './AudioPlayer';
 import { RecordingHistory } from './RecordingHistory';
@@ -15,6 +15,7 @@ interface FullRecordButtonProps {
   feedbackStyle?: 'score' | 'encouragement';
   minDuration?: number;
   maxDuration?: number;
+  autoStopSilence?: boolean;
 }
 
 export function FullRecordButton({
@@ -27,6 +28,7 @@ export function FullRecordButton({
   feedbackStyle = 'score',
   minDuration = 1,
   maxDuration = 15,
+  autoStopSilence = true,
 }: FullRecordButtonProps) {
   const [recorderState, setRecorderState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
@@ -37,18 +39,39 @@ export function FullRecordButton({
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [quality, setQuality] = useState<RecordingQuality>({
+    volumeLevel: 'normal',
+    clarity: 100,
+    hasSpeech: false,
+    issues: []
+  });
+  const [autoStopWarning, setAutoStopWarning] = useState(false);
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const comparatorRef = useRef<AudioComparator | null>(null);
 
   useEffect(() => {
-    recorderRef.current = new AudioRecorder();
+    recorderRef.current = new AudioRecorder({
+      minRecordingDuration: minDuration * 1000,
+      maxRecordingDuration: maxDuration * 1000,
+      autoStopSilenceDuration: autoStopSilence ? 2000 : 0
+    });
     comparatorRef.current = new AudioComparator();
 
     recorderRef.current.onStateChange = (state) => setRecorderState(state);
     recorderRef.current.onDurationChange = (dur) => setDuration(dur);
     recorderRef.current.onVolumeChange = (level) => setVolumeLevel(level);
     recorderRef.current.onDataAvailable = (data) => setAudioData(data);
+    recorderRef.current.onQualityChange = (q) => setQuality(q);
+    recorderRef.current.onSilenceDetected = () => {
+      if (autoStopSilence) {
+        setAutoStopWarning(true);
+        setTimeout(() => {
+          handleStop();
+          setAutoStopWarning(false);
+        }, 500);
+      }
+    };
     recorderRef.current.onError = (error) => {
       console.error('录音错误:', error);
     };
@@ -69,9 +92,9 @@ export function FullRecordButton({
     return () => {
       recorderRef.current?.destroy();
     };
-  }, []);
+  }, [minDuration, maxDuration, autoStopSilence]);
 
-  const saveRecordings = (newRecordings: Recording[]) => {
+  const saveRecordings = useCallback((newRecordings: Recording[]) => {
     setRecordings(newRecordings);
     try {
       const toSave = newRecordings.map(r => ({
@@ -83,13 +106,14 @@ export function FullRecordButton({
     } catch {
       // ignore
     }
-  };
+  }, []);
 
   const handleStart = async () => {
     if (!recorderRef.current) return;
     setShowResult(false);
     setCurrentRecording(null);
     setComparisonResult(null);
+    setAutoStopWarning(false);
     await recorderRef.current.start();
   };
 
@@ -239,7 +263,7 @@ export function FullRecordButton({
                 onClick={handleResume}
                 className={`${sizeClasses[size]} rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-all shadow-lg`}
               >
-                <Mic className={iconSizes[size]} />
+                <Play className={iconSizes[size]} />
               </button>
               <button
                 onClick={handleStop}
@@ -261,36 +285,50 @@ export function FullRecordButton({
         </div>
 
         {(recorderState === 'recording' || recorderState === 'paused') && (
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-2">
-              <div className={`text-sm font-mono ${getVolumeColor()}`}>
-                {formatTime(duration)}
-              </div>
-              <div className="flex items-end gap-0.5 h-4">
-                {[...Array(10)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-1 rounded-full transition-all duration-100 ${
-                      i < Math.floor(volumeLevel * 10) ? getVolumeColor().replace('text-', 'bg-') : 'bg-gray-200'
-                    }`}
-                    style={{ height: `${(i + 1) * 4}px` }}
-                  />
-                ))}
-              </div>
-            </div>
-            {audioData && (
-              <div className="flex items-end gap-0.5 h-8">
-                {[...Array(20)].map((_, i) => {
-                  const sample = audioData[Math.floor(i * audioData.length / 20)] || 0;
-                  const height = (sample / 255) * 100;
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-mono text-gray-600">{formatTime(duration)}</span>
+              <div className="flex items-end gap-0.5 h-6">
+                {[...Array(12)].map((_, i) => {
+                  const normalizedLevel = Math.min(volumeLevel * 1.5, 1);
+                  const barHeight = i < Math.floor(normalizedLevel * 12) ? ((i + 1) / 12) * 100 : 5;
                   return (
                     <div
                       key={i}
                       className={`w-1.5 rounded-full transition-all duration-100 ${getVolumeColor().replace('text-', 'bg-')}`}
-                      style={{ height: `${Math.max(4, height)}%` }}
+                      style={{ height: `${barHeight}%`, transitionDelay: `${i * 30}ms` }}
                     />
                   );
                 })}
+              </div>
+            </div>
+            
+            {audioData && (
+              <div className="flex items-end gap-0.5 h-8 w-48">
+                {[...Array(30)].map((_, i) => {
+                  const sample = audioData[Math.floor(i * audioData.length / 30)] || 0;
+                  const height = Math.max((sample / 255) * 100, 5);
+                  return (
+                    <div
+                      key={i}
+                      className={`w-1 rounded-full transition-all duration-75 ${getVolumeColor().replace('text-', 'bg-')}`}
+                      style={{ height: `${height}%` }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            {quality.issues.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-orange-500 bg-orange-50 px-3 py-1 rounded-full">
+                <AlertCircle className="w-3 h-3" />
+                <span>{quality.issues.join('; ')}</span>
+              </div>
+            )}
+
+            {autoStopWarning && (
+              <div className="text-xs text-blue-500 bg-blue-50 px-3 py-1 rounded-full animate-pulse">
+                检测到静音，即将自动停止...
               </div>
             )}
           </div>
@@ -312,24 +350,40 @@ export function FullRecordButton({
 
           {comparisonResult && (
             <div className="mt-4 space-y-3">
-              {feedbackStyle === 'score' && comparisonResult.similarity !== undefined && (
-                <div className="flex items-center justify-center gap-4">
-                  <div className={`w-20 h-20 rounded-full flex items-center justify-center ${getScoreBg(comparisonResult.similarity)}`}>
-                    <span className={`text-2xl font-bold ${getScoreColor(comparisonResult.similarity)}`}>
-                      {comparisonResult.similarity}
-                    </span>
+              <div className="grid grid-cols-3 gap-2">
+                {feedbackStyle === 'score' && comparisonResult.similarity !== undefined && (
+                  <div className="flex flex-col items-center">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center ${getScoreBg(comparisonResult.similarity)}`}>
+                      <span className={`text-xl font-bold ${getScoreColor(comparisonResult.similarity)}`}>
+                        {comparisonResult.similarity}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500 mt-1">相似度</span>
                   </div>
-                  <div className="text-left">
-                    <div className="text-sm text-gray-500">发音相似度</div>
-                    {comparisonResult.similarity >= 80 && (
-                      <div className="flex items-center gap-1 text-green-600 text-sm">
-                        <CheckCircle2 className="w-4 h-4" />
-                        太棒了！
-                      </div>
-                    )}
+                )}
+                
+                {comparisonResult.pronunciationScore !== undefined && (
+                  <div className="flex flex-col items-center">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center ${comparisonResult.pronunciationScore >= 60 ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                      <span className={`text-xl font-bold ${comparisonResult.pronunciationScore >= 60 ? 'text-blue-600' : 'text-gray-600'}`}>
+                        {comparisonResult.pronunciationScore}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500 mt-1">清晰度</span>
                   </div>
-                </div>
-              )}
+                )}
+                
+                {comparisonResult.fluencyScore !== undefined && (
+                  <div className="flex flex-col items-center">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center ${comparisonResult.fluencyScore >= 60 ? 'bg-purple-100' : 'bg-gray-100'}`}>
+                      <span className={`text-xl font-bold ${comparisonResult.fluencyScore >= 60 ? 'text-purple-600' : 'text-gray-600'}`}>
+                        {comparisonResult.fluencyScore}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500 mt-1">流畅度</span>
+                  </div>
+                )}
+              </div>
 
               {comparisonResult.recommendations.length > 0 && (
                 <div className="bg-blue-50 rounded-lg p-3">

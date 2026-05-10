@@ -5,7 +5,7 @@ import { SpeechButton } from '@/components/SpeechButton';
 import { RecordButton, type EncouragementTier } from '@/components/RecordButton';
 import { WORD_LEARNING_DATA, Book, Unit } from '@/data/wordLearning';
 import { cn } from '@/lib/utils';
-import { BookOpen, CheckCircle } from 'lucide-react';
+import { BookOpen, CheckCircle, Star } from 'lucide-react';
 import { useSpeech } from '@/hooks/useSpeech';
 import { useUserData } from '@/hooks/useUserData';
 import { resumeAudioContext } from '@/lib/gameSfx';
@@ -64,11 +64,13 @@ function BookListView({ onSelectBook }: { onSelectBook: (book: Book) => void }) 
 // 单元列表页面
 function UnitListView({ 
   book, 
+  textbookId,
   onSelectUnit, 
   onBack 
 }: { 
   book: Book; 
-  onSelectUnit: (unit: Unit) => void; 
+  textbookId: string;
+  onSelectUnit: (unit: Unit, textbookId: string) => void; 
   onBack: () => void;
 }) {
   return (
@@ -93,7 +95,7 @@ function UnitListView({
           return (
             <button
               key={unit.id}
-              onClick={() => onSelectUnit(unit)}
+              onClick={() => onSelectUnit(unit, textbookId)}
               className={cn(
                 'bg-white rounded-xl p-4 shadow-warm transition-all duration-300',
                 'hover:scale-105 hover:shadow-warm-lg active:scale-95',
@@ -119,18 +121,30 @@ function UnitListView({
 // 单词学习页面
 function WordListView({ 
   unit, 
+  textbookId,
   onBack 
 }: { 
   unit: Unit; 
+  textbookId: string;
   onBack: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [learnedWords, setLearnedWords] = useState<string[]>([]);
   const [showAll, setShowAll] = useState(false);
   const { speakEnglish, stop: stopSpeech, isSupported: speechSupported } = useSpeech();
-  const { userData } = useUserData();
+  const { userData, addMarkedWord, removeMarkedWord, isWordMarked } = useUserData();
 
   const currentWord = unit.words[currentIndex];
+  
+  const isMarked = isWordMarked(currentWord.word, textbookId, unit.id);
+
+  const toggleMarkWord = () => {
+    if (isMarked) {
+      removeMarkedWord(currentWord.word, textbookId, unit.id);
+    } else {
+      addMarkedWord(currentWord.word, textbookId, unit.id, currentWord.meaning, currentWord.phonetic || '');
+    }
+  };
 
   // 进入新词：自动朗读标准音（辅助）；录音不再依赖 TTS 回调，避免无声环境下永远无法跟读
   useEffect(() => {
@@ -224,6 +238,9 @@ function WordListView({
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-primary-600">{word.word}</span>
                     {word.image && <span className="text-2xl">{word.image}</span>}
+                    {isWordMarked(word.word, textbookId, unit.id) && (
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                    )}
                   </div>
                   <p className="text-gray-500 text-sm">{word.meaning}</p>
                   {word.phonetic && (
@@ -232,6 +249,23 @@ function WordListView({
                 </div>
                 <div className="flex items-center gap-2">
                   <SpeechButton text={word.word} size="sm" />
+                  <button
+                    onClick={() => {
+                      if (isWordMarked(word.word, textbookId, unit.id)) {
+                        removeMarkedWord(word.word, textbookId, unit.id);
+                      } else {
+                        addMarkedWord(word.word, textbookId, unit.id, word.meaning, word.phonetic || '');
+                      }
+                    }}
+                    className={cn(
+                      'p-2 rounded-full transition-colors',
+                      isWordMarked(word.word, textbookId, unit.id)
+                        ? 'bg-yellow-400 text-white'
+                        : 'bg-gray-200 text-gray-500 hover:bg-yellow-100'
+                    )}
+                  >
+                    <Star className={cn('w-5 h-5', isWordMarked(word.word, textbookId, unit.id) && 'fill-current')} />
+                  </button>
                   <button
                     onClick={() => markAsLearned(word.word)}
                     className={cn(
@@ -332,6 +366,18 @@ function WordListView({
               }
             }}
           />
+          <button
+            onClick={toggleMarkWord}
+            className={cn(
+              'p-3 rounded-full transition-all',
+              isMarked
+                ? 'bg-yellow-400 text-white'
+                : 'bg-yellow-100 text-yellow-500 hover:bg-yellow-200'
+            )}
+            title={isMarked ? '取消标记' : '标记为重点词'}
+          >
+            <Star className={cn('w-6 h-6', isMarked && 'fill-current')} />
+          </button>
         </div>
 
         {/* 已学标记 */}
@@ -416,8 +462,9 @@ export function WordLearningPage() {
     setViewMode('unit-list');
   };
 
-  const handleSelectUnit = (unit: Unit) => {
+  const handleSelectUnit = (unit: Unit, textbookId: string) => {
     setSelectedUnit(unit);
+    setSelectedBook(prev => prev ? { ...prev, id: textbookId } : null);
     setViewMode('word-list');
   };
 
@@ -445,14 +492,16 @@ export function WordLearningPage() {
         {viewMode === 'unit-list' && selectedBook && (
           <UnitListView 
             book={selectedBook} 
+            textbookId={selectedBook.id}
             onSelectUnit={handleSelectUnit} 
             onBack={handleBack}
           />
         )}
         
-        {viewMode === 'word-list' && selectedUnit && (
+        {viewMode === 'word-list' && selectedUnit && selectedBook && (
           <WordListView 
             unit={selectedUnit} 
+            textbookId={selectedBook.id}
             onBack={handleBack}
           />
         )}

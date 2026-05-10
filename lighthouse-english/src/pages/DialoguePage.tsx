@@ -4,6 +4,7 @@ import { Header } from '@/components/Header';
 import { useUserData } from '@/hooks/useUserData';
 import { useSpeech } from '@/hooks/useSpeech';
 import { DIALOGUES_DATA } from '@/data/questions';
+import { cn } from '@/lib/utils';
 
 type Mode = 'dialogue' | 'practice';
 
@@ -15,6 +16,8 @@ export function DialoguePage() {
   const [currentDialogueIndex, setCurrentDialogueIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('dialogue');
   const [answeredQuestions, setAnsweredQuestions] = useState<boolean[]>([]);
+  const [selectedAnswers, setSelectedAnswers] = useState<(number | null)[]>([]);
+  const [wrongQuestions, setWrongQuestions] = useState<Set<number>>(new Set());
   const [showModal, setShowModal] = useState(false);
 
   const currentDialogue = DIALOGUES_DATA[currentDialogueIndex];
@@ -36,26 +39,42 @@ export function DialoguePage() {
   const startPractice = () => {
     setMode('practice');
     setAnsweredQuestions(new Array(currentDialogue.questions.length).fill(false));
+    setSelectedAnswers(new Array(currentDialogue.questions.length).fill(null));
+    setWrongQuestions(new Set());
   };
 
   const resetPractice = () => {
     setMode('dialogue');
     setAnsweredQuestions([]);
+    setSelectedAnswers([]);
+    setWrongQuestions(new Set());
   };
 
   const checkDialogueAnswer = (questionIndex: number, selected: number) => {
-    if (answeredQuestions[questionIndex]) return;
+    if (answeredQuestions[questionIndex] && !wrongQuestions.has(questionIndex)) return;
 
     const question = currentDialogue.questions[questionIndex];
     const isCorrect = selected === question.answer;
 
-    const newAnswered = [...answeredQuestions];
-    newAnswered[questionIndex] = true;
-    setAnsweredQuestions(newAnswered);
+    const newSelected = [...selectedAnswers];
+    newSelected[questionIndex] = selected;
+    setSelectedAnswers(newSelected);
 
     if (isCorrect) {
+      const newAnswered = [...answeredQuestions];
+      newAnswered[questionIndex] = true;
+      setAnsweredQuestions(newAnswered);
+      
+      const newWrong = new Set(wrongQuestions);
+      newWrong.delete(questionIndex);
+      setWrongQuestions(newWrong);
+      
       addPoints(5);
     } else {
+      const newWrong = new Set(wrongQuestions);
+      newWrong.add(questionIndex);
+      setWrongQuestions(newWrong);
+
       addWrongQuestion({
         id: `dialogue-${currentDialogue.id}-q${questionIndex}`,
         type: 'dialogue',
@@ -66,6 +85,16 @@ export function DialoguePage() {
         },
       });
     }
+  };
+
+  const retryQuestion = (questionIndex: number) => {
+    const newSelected = [...selectedAnswers];
+    newSelected[questionIndex] = null;
+    setSelectedAnswers(newSelected);
+    
+    const newWrong = new Set(wrongQuestions);
+    newWrong.delete(questionIndex);
+    setWrongQuestions(newWrong);
   };
 
   const finishDialoguePractice = () => {
@@ -174,22 +203,44 @@ export function DialoguePage() {
                 {i + 1}. {q.question}
               </div>
               <div className="quiz-options">
-                {q.options.map((opt, j) => (
-                  <div
-                    key={j}
-                    className={`quiz-option ${
-                      answeredQuestions[i] 
-                        ? j === q.answer 
-                          ? 'correct' 
-                          : (answeredQuestions[i] ? 'wrong' : '')
-                        : ''
-                    }`}
-                    onClick={() => checkDialogueAnswer(i, j)}
-                  >
-                    {opt}
-                  </div>
-                ))}
+                {q.options.map((opt, j) => {
+                  const isSelected = selectedAnswers[i] === j;
+                  const isCorrect = j === q.answer;
+                  const isWrongAnswered = wrongQuestions.has(i);
+                  
+                  return (
+                    <div
+                      key={j}
+                      className={cn(
+                        'quiz-option',
+                        isSelected && isCorrect && 'correct',
+                        isSelected && !isCorrect && 'wrong',
+                        !isSelected && isCorrect && answeredQuestions[i] && 'correct',
+                        wrongQuestions.has(i) && !isSelected && !isCorrect && 'opacity-50'
+                      )}
+                      onClick={() => checkDialogueAnswer(i, j)}
+                    >
+                      {opt}
+                    </div>
+                  );
+                })}
               </div>
+              
+              {wrongQuestions.has(i) && (
+                <div className="mt-3 flex items-center justify-center gap-3 bg-orange-100 rounded-xl p-3">
+                  <span className="text-3xl">🐰</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-orange-800">再想想！</p>
+                    <p className="text-sm text-orange-600">仔细听一听对话的意思哦~</p>
+                  </div>
+                  <button
+                    onClick={() => retryQuestion(i)}
+                    className="px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600"
+                  >
+                    再试一次
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 

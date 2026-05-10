@@ -157,6 +157,10 @@ const defaultUserData: UserData = {
   userItems: {},
   wordLearningRecords: [],
   markedWords: [],
+  petDecoration: {
+    accessory: null,
+    background: null,
+  },
 };
 
 export function useUserData() {
@@ -359,6 +363,40 @@ export function useUserData() {
     return { success: true, growth, isBad: preference === 'bad' };
   }, [userData.userItems, userData.adoptedPet]);
 
+  // 装备装饰
+  const equipDecoration = useCallback((type: 'accessory' | 'background', itemId: string): boolean => {
+    const currentCount = userData.userItems[itemId];
+    if (!currentCount || currentCount <= 0) return false;
+
+    setUserData(prev => {
+      const newData = {
+        ...prev,
+        petDecoration: {
+          ...prev.petDecoration,
+          [type]: itemId,
+        },
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      return newData;
+    });
+    return true;
+  }, [userData.userItems]);
+
+  // 卸下装饰
+  const unequipDecoration = useCallback((type: 'accessory' | 'background') => {
+    setUserData(prev => {
+      const newData = {
+        ...prev,
+        petDecoration: {
+          ...prev.petDecoration,
+          [type]: null,
+        },
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      return newData;
+    });
+  }, []);
+
   // 标记单词已学习
   const markWordLearned = useCallback((word: string, textbookId: string, unitId: number) => {
     setUserData(prev => {
@@ -533,6 +571,14 @@ export function useUserData() {
     consumeItem,
     getFoodPreference,
     getGrowthValue,
+    markWordLearned,
+    recordWordReview,
+    getWordsForReview,
+    addMarkedWord,
+    removeMarkedWord,
+    isWordMarked,
+    equipDecoration,
+    unequipDecoration,
     PET_FACES,
   };
 }

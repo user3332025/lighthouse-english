@@ -154,6 +154,7 @@ export interface UserData {
   userItems: Record<string, number>; // 拥有的物品 { itemId: count }
   wordLearningRecords: WordLearningRecord[]; // 单词学习记录
   markedWords: MarkedWord[]; // 生词本/重点词
+  petDecoration: PetDecoration; // 宠物装饰配置
 }
 
 // 食物偏好类型
@@ -164,6 +165,15 @@ export interface PetFoodPreferences {
   [petType: string]: {
     [itemId: string]: FoodPreference;
   };
+}
+
+// 物品类型
+export type ItemType = 'food' | 'pet' | 'accessory' | 'background';
+
+// 宠物装饰配置
+export interface PetDecoration {
+  accessory: string | null;
+  background: string | null;
 }
 
 // 页面路由

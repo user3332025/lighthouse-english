@@ -369,39 +369,56 @@ export function ShopPage() {
                 </button>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl p-4 shadow-warm">
-                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                  <span className="text-2xl">🎁</span>
-                  已拥有的物品
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  在这里清点物品；要喂养宠物请打开「小动物养成」页面，在「我的背包」里点击物品即可消耗并增加成长值。
-                </p>
-                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                  {Object.entries(userItems).map(([itemId, count]) => {
-                    let item: ShopItem | undefined;
-                    for (const cat of Object.values(SHOP_ITEMS)) {
-                      item = cat.find((i) => i.id === itemId);
-                      if (item) break;
-                    }
-                    const label = item?.name ?? '物品';
-                    const emoji = item?.emoji ?? '🎁';
-                    return (
-                      <div
-                        key={itemId}
-                        className="bg-orange-50 rounded-xl p-2 text-center hover:bg-orange-100 transition-all"
-                        title={`${label} x${count}`}
-                      >
-                        <div className="text-3xl mb-1">{emoji}</div>
-                        <div className="text-xs font-medium text-gray-600 line-clamp-1">{label}</div>
-                        <div className="text-xs text-orange-600">x{count}</div>
+              <div className="space-y-4">
+                {Object.entries({
+                  food: { title: '🍕 美味食物', emoji: '🍕', color: 'orange' },
+                  animals: { title: '🐱 小伙伴', emoji: '🐱', color: 'pink' },
+                  accessories: { title: '👑 装饰配件', emoji: '👑', color: 'purple' },
+                  nature: { title: '🌸 自然背景', emoji: '🌸', color: 'green' },
+                }).map(([category, info]) => {
+                  const categoryItems = Object.entries(userItems).filter(([itemId]) => 
+                    SHOP_ITEMS[category as ShopCategory]?.some(item => item.id === itemId)
+                  );
+                  if (categoryItems.length === 0) return null;
+                  return (
+                    <div key={category} className="bg-white rounded-2xl p-4 shadow-warm">
+                      <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <span className="text-2xl">{info.emoji}</span>
+                        {info.title}
+                        <span className={`bg-${info.color}-100 text-${info.color}-600 text-xs px-2 py-0.5 rounded-full ml-auto`}>
+                          {categoryItems.length}个
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-3">
+                        {category === 'food' && '可以喂给小动物获得成长值'}
+                        {category === 'animals' && '可以领养的小伙伴'}
+                        {category === 'accessories' && '可以给宠物佩戴的装饰'}
+                        {category === 'nature' && '可以设置为宠物背景'}
+                      </p>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                        {categoryItems.map(([itemId, count]) => {
+                          const item = SHOP_ITEMS[category as ShopCategory]?.find(i => i.id === itemId);
+                          const label = item?.name ?? '物品';
+                          const emoji = item?.emoji ?? '🎁';
+                          return (
+                            <div
+                              key={itemId}
+                              className={`bg-${info.color}-50 rounded-xl p-2 text-center hover:bg-${info.color}-100 transition-all`}
+                              title={`${label} x${count}`}
+                            >
+                              <div className="text-3xl mb-1">{emoji}</div>
+                              <div className="text-xs font-medium text-gray-600 line-clamp-1">{label}</div>
+                              <div className={`text-xs text-${info.color}-600`}>x{count}</div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
                 <button
                   onClick={() => navigate('/pet')}
-                  className="w-full mt-4 bg-gradient-to-r from-orange-400 to-red-500 text-white py-3 rounded-xl font-bold hover:scale-[1.02] transition-all"
+                  className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white py-3 rounded-xl font-bold hover:scale-[1.02] transition-all"
                 >
                   🐾 去喂养小动物
                 </button>
