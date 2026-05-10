@@ -4,12 +4,55 @@ export type TextbookSemesterId = 'grade3a' | 'grade3b';
 // 小动物类型
 export type PetType = 'dog' | 'cat' | 'rabbit' | 'bear' | 'fox';
 
+// 单个宠物数据
+export interface Pet {
+  id: string;
+  type: PetType;
+  name: string;
+  level: number;
+  exp: number;
+  hunger: number; // 饥饿值 0-100，0=很饿，100=吃饱
+  happiness: number; // 快乐值 0-100，0=不开心，100=很开心
+  lastFed: number; // 最后喂食时间戳
+  lastPlayed: number; // 最后玩耍时间戳
+  adoptedAt: number; // 领养时间
+  accessory?: string; // 当前装饰
+  background?: string; // 当前背景
+}
+
+// 宠物小窝数据
+export interface PetHome {
+  pets: Pet[];
+  activePetId: string | null;
+}
+
 // 小动物等级
 export interface PetLevel {
   level: number;
   name: string;
   minExp: number;
   appearance: string;
+}
+
+// 食物类型
+export type FoodCategory = 'snack' | 'fruit' | 'meal';
+
+// 玩具类型
+export type ToyCategory = 'ball' | 'plush' | 'game';
+
+// 物品类型
+export interface Item {
+  id: string;
+  name: string;
+  emoji: string;
+  cost: number;
+  category: FoodCategory | ToyCategory;
+  type: 'food' | 'toy';
+  effect: {
+    hunger?: number; // 恢复饥饿值
+    happiness?: number; // 增加快乐值
+    exp?: number; // 增加经验值
+  };
 }
 
 // 游戏进度
@@ -139,9 +182,6 @@ export interface MarkedWord {
 // 用户数据
 export interface UserData {
   points: number;
-  adoptedPet: PetType | null;
-  petExp: number;
-  petLevel: number;
   wrongQuestions: WrongQuestion[];
   gameHistory: {
     [gameType: string]: {
@@ -151,10 +191,10 @@ export interface UserData {
     };
   };
   voiceEnabled: boolean;
-  userItems: Record<string, number>; // 拥有的物品 { itemId: count }
+  inventory: Record<string, number>; // 背包物品 { itemId: count }
   wordLearningRecords: WordLearningRecord[]; // 单词学习记录
   markedWords: MarkedWord[]; // 生词本/重点词
-  petDecoration: PetDecoration; // 宠物装饰配置
+  petHome: PetHome; // 宠物小窝
 }
 
 // 食物偏好类型
@@ -165,15 +205,6 @@ export interface PetFoodPreferences {
   [petType: string]: {
     [itemId: string]: FoodPreference;
   };
-}
-
-// 物品类型
-export type ItemType = 'food' | 'pet' | 'accessory' | 'background';
-
-// 宠物装饰配置
-export interface PetDecoration {
-  accessory: string | null;
-  background: string | null;
 }
 
 // 页面路由
@@ -187,4 +218,5 @@ export type PageType =
   | 'listening'
   | 'matching'
   | 'ordering'
-  | 'pet';
+  | 'pet'
+  | 'shop';

@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { SpeechButton } from '@/components/SpeechButton';
-import { RecordButton, type EncouragementTier } from '@/components/RecordButton';
 import { WORD_LEARNING_DATA, Book, Unit } from '@/data/wordLearning';
 import { cn } from '@/lib/utils';
-import { BookOpen, CheckCircle, Star } from 'lucide-react';
+import { BookOpen, CheckCircle, Star, Mic, Square, Volume2, RotateCw, Play, Pause, Trophy } from 'lucide-react';
 import { useSpeech } from '@/hooks/useSpeech';
 import { useUserData } from '@/hooks/useUserData';
 import { resumeAudioContext } from '@/lib/gameSfx';
+import { AudioRecorder, Recording, RecordingState, RecordingQuality } from '../lib/AudioRecorder';
+import { AudioComparator, AudioComparisonResult } from '../lib/AudioComparator';
 
 type ViewMode = 'book-list' | 'unit-list' | 'word-list';
 
@@ -131,12 +132,51 @@ function WordListView({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [learnedWords, setLearnedWords] = useState<string[]>([]);
   const [showAll, setShowAll] = useState(false);
+  const [recorderState, setRecorderState] = useState<RecordingState>('idle');
+  const [currentRecording, setCurrentRecording] = useState<Recording | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<AudioComparisonResult | null>(null);
+  const [recordingQuality, setRecordingQuality] = useState<RecordingQuality>({
+    volumeLevel: 'normal',
+    clarity: 100,
+    hasSpeech: false,
+    issues: []
+  });
+  const [audioData, setAudioData] = useState<Uint8Array | null>(null);
+  const [volumeLevel, setVolumeLevel] = useState(0);
+  const [isPlayingOwn, setIsPlayingOwn] = useState(false);
   const { speakEnglish, stop: stopSpeech, isSupported: speechSupported } = useSpeech();
   const { userData, addMarkedWord, removeMarkedWord, isWordMarked } = useUserData();
+
+  const recorderRef = useRef<AudioRecorder | null>(null);
+  const comparatorRef = useRef<AudioComparator | null>(null);
+  const ownAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const currentWord = unit.words[currentIndex];
   
   const isMarked = isWordMarked(currentWord.word, textbookId, unit.id);
+
+  useEffect(() => {
+    recorderRef.current = new AudioRecorder({
+      minRecordingDuration: 500,
+      maxRecordingDuration: 5000,
+      autoStopSilenceDuration: 1500
+    });
+    comparatorRef.current = new AudioComparator();
+
+    recorderRef.current.onStateChange = (state) => setRecorderState(state);
+    recorderRef.current.onDurationChange = () => {};
+    recorderRef.current.onVolumeChange = (level) => setVolumeLevel(level);
+    recorderRef.current.onDataAvailable = (data) => setAudioData(data);
+    recorderRef.current.onQualityChange = (q) => setRecordingQuality(q);
+    recorderRef.current.onSilenceDetected = handleSilenceDetected;
+    recorderRef.current.onError = (error) => {
+      alert('录音出错：' + error);
+    };
+
+    return () => {
+      recorderRef.current?.destroy();
+    };
+  }, []);
 
   const toggleMarkWord = () => {
     if (isMarked) {
@@ -189,6 +229,7 @@ function WordListView({
     speakEnglish,
     stopSpeech,
   ]);
+
   const progress = ((currentIndex + 1) / unit.words.length) * 100;
 
   const markAsLearned = (word: string) => {
@@ -200,14 +241,102 @@ function WordListView({
   const nextWord = () => {
     if (currentIndex < unit.words.length - 1) {
       setCurrentIndex(currentIndex + 1);
+      resetRecording();
     }
   };
 
   const prevWord = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
+      resetRecording();
     }
   };
+
+  const resetRecording = useCallback(() => {
+    setRecorderState('idle');
+    setCurrentRecording(null);
+    setComparisonResult(null);
+    setAudioData(null);
+    setVolumeLevel(0);
+    if (ownAudioRef.current) {
+      ownAudioRef.current.pause();
+    }
+    setIsPlayingOwn(false);
+  }, []);
+
+  const handleSilenceDetected = useCallback(() => {
+    if (recorderState === 'recording') {
+      stopRecording();
+    }
+  }, [recorderState]);
+
+  const startRecording = async () => {
+    if (!recorderRef.current) return;
+    resetRecording();
+    await recorderRef.current.start();
+  };
+
+  const stopRecording = async () => {
+    if (!recorderRef.current) return;
+    
+    try {
+      const recording = await recorderRef.current.stop();
+      const recordingWithText = { ...recording, targetText: currentWord.word };
+      setCurrentRecording(recordingWithText);
+
+      const result = await comparatorRef.current!.compareAudio(
+        recording.url,
+        undefined,
+        currentWord.word
+      );
+
+      setComparisonResult(result);
+      
+      if (result.similarity && (result.similarity >= 80) && !learnedWords.includes(currentWord.word)) {
+        markAsLearned(currentWord.word);
+      }
+
+    } catch (error) {
+      console.error('录音失败:', error);
+      alert('录音失败，请重试');
+    }
+  };
+
+  const playOwnRecording = () => {
+    if (!currentRecording) return;
+    
+    if (isPlayingOwn && ownAudioRef.current) {
+      ownAudioRef.current.pause();
+      setIsPlayingOwn(false);
+    } else if (ownAudioRef.current) {
+      ownAudioRef.current.play().catch(() => {});
+      setIsPlayingOwn(true);
+    }
+  };
+
+  const getScoreColor = (score?: number) => {
+    if (!score) return 'text-gray-600';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBg = (score?: number) => {
+    if (!score) return 'bg-gray-50';
+    if (score >= 80) return 'bg-green-50';
+    if (score >= 60) return 'bg-yellow-50';
+    return 'bg-red-50';
+  };
+
+  const getScoreFeedback = (score?: number) => {
+    if (!score) return { emoji: '🤔', text: '加油！' };
+    if (score >= 90) return { emoji: '🎉', text: '太棒了！完美发音！' };
+    if (score >= 70) return { emoji: '👍', text: '很好！继续努力！' };
+    if (score >= 50) return { emoji: '💪', text: '不错，再试一次！' };
+    return { emoji: '🔄', text: '再试一次！' };
+  };
+
+  const feedback = comparisonResult?.similarity ? getScoreFeedback(comparisonResult.similarity) : null;
 
   // 显示所有单词列表
   if (showAll) {
@@ -345,53 +474,169 @@ function WordListView({
           </div>
         )}
 
-        <p className="text-center text-sm text-gray-600 mb-3">
-          可先点喇叭听标准读音，再点麦克风跟读；结束后会给出英文鼓励
-        </p>
+        {/* 发音练习区域 */}
+        <div className="bg-gradient-to-br from-orange-50 to-pink-50 rounded-2xl p-6 mb-6">
+          <p className="text-center text-gray-600 mb-4 font-medium">🎤 发音练习</p>
+          
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
+              <button
+                onClick={() => speakEnglish(currentWord.word)}
+                className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all"
+                title="听标准发音"
+              >
+                <Volume2 className="w-8 h-8" />
+              </button>
 
-        {/* 操作按钮 */}
-        <div className="flex flex-wrap justify-center items-center gap-4 mb-3">
-          <SpeechButton text={currentWord.word} size="lg" />
-          <RecordButton
-            targetText={currentWord.word}
-            size="lg"
-            feedbackStyle="encouragement"
-            onNext={nextWord}
-            onEncouragement={(tier: EncouragementTier) => {
-              if (
-                (tier === 'excellent' || tier === 'well') &&
-                !learnedWords.includes(currentWord.word)
-              ) {
-                markAsLearned(currentWord.word);
-              }
-            }}
-          />
+              {recorderState === 'idle' && !comparisonResult && (
+                <button
+                  onClick={startRecording}
+                  className="w-16 h-16 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 text-white flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all"
+                  title="开始录音"
+                >
+                  <Mic className="w-8 h-8" />
+                </button>
+              )}
+
+              {recorderState === 'recording' && (
+                <button
+                  onClick={stopRecording}
+                  className="w-16 h-16 rounded-full bg-gradient-to-r from-red-500 to-pink-600 text-white flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all"
+                  title="停止录音"
+                >
+                  <Square className="w-8 h-8" />
+                </button>
+              )}
+
+              {comparisonResult && currentRecording && (
+                <button
+                  onClick={playOwnRecording}
+                  className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all"
+                  title="听自己的录音"
+                >
+                  {isPlayingOwn ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
+                </button>
+              )}
+            </div>
+
+            {/* 录音状态动画 */}
+            {recorderState === 'recording' && (
+              <div className="w-full max-w-xs">
+                <div className="flex items-end justify-center gap-1 h-16 mb-4">
+                  {[...Array(15)].map((_, i) => {
+                    const height = Math.max(20, Math.random() * volumeLevel * 120);
+                    return (
+                      <div
+                        key={i}
+                        className="w-2 md:w-3 rounded-full bg-gradient-to-t from-orange-400 to-pink-500 animate-pulse"
+                        style={{ height: `${height}%`, animationDelay: `${i * 50}ms` }}
+                      />
+                    );
+                  })}
+                </div>
+
+                {audioData && (
+                  <div className="flex items-end justify-center gap-1 h-12">
+                    {[...Array(20)].map((_, i) => {
+                      const sample = audioData[Math.floor(i * audioData.length / 20)] || 0;
+                      const height = Math.max(10, (sample / 255) * 100);
+                      return (
+                        <div
+                          key={i}
+                          className="w-1.5 rounded-full bg-gradient-to-t from-purple-400 to-pink-400"
+                          style={{ height: `${height}%` }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
+                {recordingQuality.issues.length > 0 && (
+                  <div className="text-orange-500 text-sm text-center mt-2">
+                    {recordingQuality.issues[0] === '音量过低' && '🔊 声音再大一点！'}
+                    {recordingQuality.issues[0] === '音量过高' && '🔊 声音小一点点！'}
+                    {recordingQuality.issues[0] === '声音不够清晰' && '💬 说话再清楚一点！'}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 发音评测结果 */}
+            {comparisonResult && (
+              <div className={`w-full max-w-xs rounded-2xl p-4 ${getScoreBg(comparisonResult.similarity)}`}>
+                {feedback && (
+                  <div className="text-center">
+                    <div className="text-5xl mb-2">{feedback.emoji}</div>
+                    <div className={`text-4xl font-bold ${getScoreColor(comparisonResult.similarity)} mb-2`}>
+                      {comparisonResult.similarity || 0}分
+                    </div>
+                    <p className={`text-lg font-medium ${getScoreColor(comparisonResult.similarity)}`}>
+                      {feedback.text}
+                    </p>
+                  </div>
+                )}
+
+                {comparisonResult.recognizedText && (
+                  <div className="text-center mt-3 text-gray-600">
+                    <p className="text-sm">你读的是：</p>
+                    <p className="text-xl font-bold text-blue-600">{comparisonResult.recognizedText}</p>
+                  </div>
+                )}
+
+                {comparisonResult.recommendations.length > 0 && (
+                  <div className="text-center mt-3 text-sm text-yellow-700">
+                    💡 {comparisonResult.recommendations[comparisonResult.recommendations.length - 1]}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={resetRecording}
+                    className="flex-1 py-3 rounded-full bg-gray-200 text-gray-700 font-medium flex items-center justify-center gap-2 hover:bg-gray-300 transition-colors"
+                  >
+                    <RotateCw className="w-5 h-5" />
+                    再试一次
+                  </button>
+                  {comparisonResult.similarity && comparisonResult.similarity >= 80 && currentIndex < unit.words.length - 1 && (
+                    <button
+                      onClick={nextWord}
+                      className="flex-1 py-3 rounded-full bg-green-500 text-white font-medium flex items-center justify-center gap-2 hover:bg-green-600 transition-colors"
+                    >
+                      <Trophy className="w-5 h-5" />
+                      下一个
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 标记按钮 */}
+        <div className="flex justify-center gap-4">
           <button
             onClick={toggleMarkWord}
             className={cn(
-              'p-3 rounded-full transition-all',
+              'px-6 py-3 rounded-full transition-all flex items-center gap-2',
               isMarked
                 ? 'bg-yellow-400 text-white'
                 : 'bg-yellow-100 text-yellow-500 hover:bg-yellow-200'
             )}
-            title={isMarked ? '取消标记' : '标记为重点词'}
           >
-            <Star className={cn('w-6 h-6', isMarked && 'fill-current')} />
+            <Star className={cn('w-5 h-5', isMarked && 'fill-current')} />
+            {isMarked ? '已标记' : '标记重点词'}
           </button>
-        </div>
-
-        {/* 已学标记 */}
-        <div className="text-center">
           <button
             onClick={() => markAsLearned(currentWord.word)}
             className={cn(
-              'px-6 py-3 rounded-full font-bold transition-all',
+              'px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2',
               learnedWords.includes(currentWord.word)
                 ? 'bg-green-500 text-white'
                 : 'bg-gray-200 text-gray-600 hover:bg-green-100'
             )}
           >
-            {learnedWords.includes(currentWord.word) ? '✓ 已掌握' : '点击标记为已学'}
+            <CheckCircle className="w-5 h-5" />
+            {learnedWords.includes(currentWord.word) ? '✓ 已掌握' : '标记为已学'}
           </button>
         </div>
       </div>
@@ -415,7 +660,10 @@ function WordListView({
           {unit.words.map((_, index) => (
             <button
               key={index}
-              onClick={() => setCurrentIndex(index)}
+              onClick={() => {
+                setCurrentIndex(index);
+                resetRecording();
+              }}
               className={cn(
                 'w-3 h-3 rounded-full transition-all',
                 index === currentIndex ? 'bg-primary-500' : 
@@ -445,6 +693,16 @@ function WordListView({
           <p className="text-2xl mb-2">🎉</p>
           <p className="text-green-700 font-bold text-lg">恭喜！你已学完本单元所有单词！</p>
         </div>
+      )}
+
+      {/* 隐藏的音频元素 */}
+      {currentRecording && (
+        <audio
+          ref={ownAudioRef}
+          src={currentRecording.url}
+          onEnded={() => setIsPlayingOwn(false)}
+          onError={() => setIsPlayingOwn(false)}
+        />
       )}
     </div>
   );

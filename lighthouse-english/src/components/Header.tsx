@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Star, Volume2, VolumeX, Home } from 'lucide-react';
 import { useUserData } from '@/hooks/useUserData';
-import { VoiceGenderToggle } from '@/components/VoiceGenderToggle';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {

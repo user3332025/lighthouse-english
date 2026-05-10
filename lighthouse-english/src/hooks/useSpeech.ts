@@ -1,39 +1,54 @@
 import { useCallback, useState, useEffect } from 'react';
 
-export type VoiceGender = 'female' | 'male';
-
-function selectVoice(gender: VoiceGender): SpeechSynthesisVoice | undefined {
+function selectFemaleVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   const enUsVoices = voices.filter(v => v.lang === 'en-US');
   if (enUsVoices.length === 0) {
     return voices.find(v => v.lang.startsWith('en'));
   }
 
-  const femaleKeywords = ['female', 'woman', 'samantha', 'victoria', 'tessa', 'serena', 'kate', 'susan', 'zira', 'allison', 'aria', 'sara', 'google us english', 'microsoft zira', 'microsoft sara'];
-  const maleKeywords = ['male', 'man', 'alex', 'daniel', 'fred', 'george', 'microsoft david', 'microsoft mark', 'google us english male'];
+  // 女声优先级（从最高质量到低质量）
+  const femalePriority = [
+    // Google 高质量语音
+    { keywords: ['google us english'], score: 100 },
+    { keywords: ['google us english female'], score: 100 },
+    // Microsoft 高质量语音
+    { keywords: ['microsoft aria', 'microsoft jenny', 'microsoft sara', 'microsoft zira'], score: 90 },
+    // Apple 增强版语音
+    { keywords: ['samantha (enhanced)', 'victoria (enhanced)'], score: 85 },
+    // Apple 标准版语音
+    { keywords: ['samantha', 'victoria', 'tessa', 'serena'], score: 80 },
+    // 其他高质量女声
+    { keywords: ['kate', 'susan', 'allison', 'karen'], score: 70 },
+    // 通用女声标识
+    { keywords: ['female', 'woman'], score: 50 },
+  ];
 
-  if (gender === 'female') {
-    for (const kw of femaleKeywords) {
+  // 按优先级选择女声
+  for (const group of femalePriority) {
+    for (const kw of group.keywords) {
       const voice = enUsVoices.find(v => v.name.toLowerCase().includes(kw.toLowerCase()));
-      if (voice) return voice;
+      if (voice) {
+        return voice;
+      }
     }
-    const nonMale = enUsVoices.filter(v => !maleKeywords.some(kw => v.name.toLowerCase().includes(kw.toLowerCase())));
-    if (nonMale.length > 0) return nonMale[0];
-  } else {
-    for (const kw of maleKeywords) {
-      const voice = enUsVoices.find(v => v.name.toLowerCase().includes(kw.toLowerCase()));
-      if (voice) return voice;
-    }
-    const nonFemale = enUsVoices.filter(v => !femaleKeywords.some(kw => v.name.toLowerCase().includes(kw.toLowerCase())));
-    if (nonFemale.length > 0) return nonFemale[0];
   }
-  
-  const def = enUsVoices.find(v => v.default);
-  return def || enUsVoices[0];
+
+  // 排除男声
+  const maleKeywords = ['male', 'man', 'alex', 'daniel', 'fred', 'george', 'microsoft david', 'microsoft mark'];
+  const nonMaleVoices = enUsVoices.filter(v => 
+    !maleKeywords.some(kw => v.name.toLowerCase().includes(kw.toLowerCase()))
+  );
+  if (nonMaleVoices.length > 0) {
+    return nonMaleVoices[0];
+  }
+
+  // 如果没找到，返回默认的 en-US 语音
+  const defaultVoice = enUsVoices.find(v => v.default);
+  return defaultVoice || enUsVoices[0];
 }
 
 export function useSpeech() {
-  const [voiceGender, setVoiceGender] = useState<VoiceGender>('female');
   const [voicesLoaded, setVoicesLoaded] = useState(false);
 
   useEffect(() => {
@@ -54,7 +69,6 @@ export function useSpeech() {
 
   const speak = useCallback((text: string) => {
     if (!('speechSynthesis' in window)) {
-      console.log('浏览器不支持语音合成');
       return;
     }
 
@@ -66,32 +80,20 @@ export function useSpeech() {
     u.pitch = 1;
     u.volume = 1;
     
-    const selectedVoice = selectVoice(voiceGender);
+    const selectedVoice = selectFemaleVoice();
     if (selectedVoice) {
       u.voice = selectedVoice;
-      console.log('使用语音:', selectedVoice.name);
     }
     
     u.onerror = (event) => {
       console.error('语音错误:', event.error);
-      // 降级：不指定语音，只使用语言设置
-      const fallbackU = new SpeechSynthesisUtterance(text);
-      fallbackU.lang = 'en-US';
-      fallbackU.rate = 0.9;
-      window.speechSynthesis.speak(fallbackU);
-    };
-    
-    u.onend = () => {
-      console.log('语音播放完成');
     };
     
     window.speechSynthesis.speak(u);
-    console.log('开始播放:', text);
-  }, [voiceGender]);
+  }, []);
 
   const speakChinese = useCallback((text: string) => {
     if (!('speechSynthesis' in window)) {
-      console.log('浏览器不支持语音合成');
       return;
     }
     window.speechSynthesis.cancel();
@@ -111,19 +113,12 @@ export function useSpeech() {
     }
   }, []);
 
-  const toggleVoiceGender = useCallback(() => {
-    setVoiceGender(prev => prev === 'female' ? 'male' : 'female');
-  }, []);
-
   return {
     speak,
     speakChinese,
     speakEnglish,
     stop,
     isSupported: typeof window !== 'undefined' && 'speechSynthesis' in window,
-    voiceGender,
-    setVoiceGender,
-    toggleVoiceGender,
     voicesLoaded,
   };
 }

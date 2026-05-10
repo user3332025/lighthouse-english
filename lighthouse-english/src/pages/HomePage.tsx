@@ -6,14 +6,6 @@ import { cn } from '@/lib/utils';
 
 const LEARNING_MODULES = [
   {
-    id: 'pronunciation',
-    title: '发音练习',
-    description: '录音评测发音',
-    icon: '🎤',
-    color: 'from-orange-400 to-pink-500',
-    path: '/kids-pronunciation',
-  },
-  {
     id: 'word',
     title: '单词学习',
     description: '按课本单元背单词',
@@ -36,14 +28,6 @@ const LEARNING_MODULES = [
     icon: '💬',
     color: 'from-pink-400 to-pink-500',
     path: '/dialogue',
-  },
-  {
-    id: 'listening',
-    title: '听力练习',
-    description: '听音选图训练',
-    icon: '👂',
-    color: 'from-cyan-400 to-cyan-500',
-    path: '/listening',
   },
   {
     id: 'games',

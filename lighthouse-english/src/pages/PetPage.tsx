@@ -3,18 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Star, Sparkles } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { PetModal } from '@/components/PetModal';
-import { useUserData, PET_FACES, PET_LEVELS, getPetStageEmoji } from '@/hooks/useUserData';
+import { useUserData, PET_FACES, PET_LEVELS } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
 import { PetType } from '@/types';
-import { SHOP_ITEMS, type ShopItem, type ShopCategory } from '@/pages/ShopPage';
-
-function findShopItemById(id: string): ShopItem | undefined {
-  for (const list of Object.values(SHOP_ITEMS)) {
-    const hit = list.find((i) => i.id === id);
-    if (hit) return hit;
-  }
-  return undefined;
-}
+import { PET_ITEMS, findItemById } from '@/data/petItems';
 
 const PETS: { type: PetType; name: string; emoji: string }[] = [
   { type: 'dog', name: '小狗狗', emoji: '🐶' },
@@ -30,50 +22,45 @@ export function PetPage() {
     userData,
     adoptPet,
     feedPet,
-    consumeItem,
-    getNextLevel,
-    getLevelProgress,
-    getGrowthValue,
-    equipDecoration,
-    unequipDecoration,
+    updatePet,
+    getActivePet,
+    addPoints,
+    spendPoints,
+    getItemCount,
+    useItem,
   } = useUserData();
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number; previousLevel: number } | null>(null);
   const [feedSuccess, setFeedSuccess] = useState(false);
-  const [usedItemName, setUsedItemName] = useState<string | null>(null);
-  const [lastFeedGrowth, setLastFeedGrowth] = useState<number>(2);
-  const [lastFeedBad, setLastFeedBad] = useState(false);
   const [isPetClicked, setIsPetClicked] = useState(false);
   const [petMood, setPetMood] = useState<'normal' | 'happy' | 'excited'>('normal');
 
-  const nextLevel = getNextLevel();
-  const levelProgress = getLevelProgress();
+  const activePet = getActivePet();
 
   const handleAdopt = (petType: PetType) => {
     adoptPet(petType);
   };
 
   const handleFeed = () => {
-    if (userData.points < 30) {
-      alert('积分不足！需要 30 积分来喂养小动物');
-      return;
-    }
-
-    const result = feedPet();
-    if (result.success) {
+    if (!activePet) return;
+    
+    const appleCount = getItemCount('apple');
+    if (appleCount > 0) {
+      if (useItem('apple')) {
+        feedPet(activePet.id, 'apple');
+        setFeedSuccess(true);
+        setTimeout(() => setFeedSuccess(false), 1000);
+      }
+    } else {
+      if (userData.points < 15) {
+        alert('积分不足！需要 15 积分购买苹果');
+        return;
+      }
+      spendPoints(15);
+      feedPet(activePet.id, 'apple');
       setFeedSuccess(true);
       setTimeout(() => setFeedSuccess(false), 1000);
-
-      if (result.leveledUp && result.newLevel) {
-        setLevelUpData({
-          newLevel: result.newLevel,
-          previousLevel: Math.max(1, result.newLevel - 1),
-        });
-        setTimeout(() => {
-          setShowLevelUp(true);
-        }, 1200);
-      }
     }
   };
 
@@ -90,9 +77,9 @@ export function PetPage() {
       setPetMood('normal');
     }, 2000);
   };
-  const stageEmoji =
-    userData.adoptedPet ? getPetStageEmoji(userData.adoptedPet, userData.petLevel) : '🐾';
-  const mainPetEmoji = feedSuccess ? (petFace?.eating ?? stageEmoji) : stageEmoji;
+  
+  const stageEmoji = PET_EMOJIS[userData.adoptedPet || 'dog'] || '🐾';
+  const mainPetEmoji = feedSuccess ? '🍎' : stageEmoji;
 
   // 未领养状态 - 选择小动物
   if (!userData.adoptedPet) {
