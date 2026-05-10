@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Pet, PetType, PetLevel, WrongQuestion, WrongQuestionInput, UserData, PetHome, WordLearningRecord, MarkedWord, REVIEW_INTERVALS } from '@/types';
+import { Pet, PetType, PetLevel, WrongQuestion, WrongQuestionInput, UserData, PetHome, WordLearningRecord, MarkedWord, REVIEW_INTERVALS, UserDecorations } from '@/types';
 import { findItemById, PET_EMOJIS } from '@/data/petItems';
 
 const STORAGE_KEY = 'lighthouse_english_data_v2';
@@ -28,6 +28,12 @@ export const PET_FACES: Record<PetType, { normal: string; happy: string; hungry:
   fox: { normal: '🦊', happy: '🦝', hungry: '🥺', sleeping: '😴' },
 };
 
+// 默认装饰和背景数据
+const defaultUserDecorations: UserDecorations = {
+  ownedAccessories: [],
+  ownedBackgrounds: [],
+};
+
 // 默认用户数据
 const defaultUserData: UserData = {
   points: 0,
@@ -41,6 +47,7 @@ const defaultUserData: UserData = {
     pets: [],
     activePetId: null,
   },
+  userDecorations: defaultUserDecorations,
   completedQuizzes: { dialogue: 0, sentence: 0, listening: 0, matching: 0, ordering: 0 },
 };
 
@@ -106,7 +113,46 @@ export function useUserData() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setUserData({ ...defaultUserData, ...parsed });
+        
+        // 数据迁移逻辑
+        let migratedData = { ...defaultUserData, ...parsed };
+        
+        // 确保 userDecorations 存在且是对象
+        if (!migratedData.userDecorations) {
+          migratedData.userDecorations = defaultUserDecorations;
+        } else if (!migratedData.userDecorations.ownedAccessories) {
+          migratedData.userDecorations.ownedAccessories = [];
+        } else if (!migratedData.userDecorations.ownedBackgrounds) {
+          migratedData.userDecorations.ownedBackgrounds = [];
+        }
+        
+        // 迁移 wordLearningRecords 到新格式
+        if (migratedData.wordLearningRecords && migratedData.wordLearningRecords.length > 0) {
+          const now = Date.now();
+          migratedData.wordLearningRecords = migratedData.wordLearningRecords.map((record: any) => {
+            // 如果已经是新格式，直接返回
+            if (record.nextReviewAt !== undefined) return record;
+            
+            // 从旧格式迁移
+            const correctCount = record.correctCount || 0;
+            const intervalIndex = Math.min(correctCount + 1, REVIEW_INTERVALS.length - 1);
+            
+            return {
+              word: record.word,
+              textbookId: record.textbookId || 'grade3a',
+              unitId: record.unitId || 1,
+              learnedAt: record.learnedAt || now,
+              nextReviewAt: now,
+              reviewCount: record.reviewCount || 0,
+              correctCount: record.correctCount || 0,
+              wrongCount: record.wrongCount || 0,
+              currentIntervalIndex: intervalIndex,
+              isMastered: record.isMastered || false,
+            };
+          });
+        }
+        
+        setUserData(migratedData);
       } catch (e) {
         console.error('Failed to load user data:', e);
       }
@@ -156,9 +202,8 @@ export function useUserData() {
   const getWordsForReview = useCallback(() => {
     const now = Date.now();
     return userData.wordLearningRecords.filter(r => {
-      if (r.correctCount >= 3) return false;
-      const daysSinceReview = (now - r.lastReview) / (1000 * 60 * 60 * 24);
-      return daysSinceReview >= r.intervalDays;
+      if (r.isMastered) return false;
+      return now >= r.nextReviewAt;
     });
   }, [userData.wordLearningRecords]);
 
@@ -186,56 +231,94 @@ export function useUserData() {
     });
   }, [saveData]);
 
-  const markWordLearned = useCallback((word: string) => {
+  const markWordLearned = useCallback((word: string, textbookId: string, unitId: number) => {
     setUserData(prev => {
-      const existing = prev.wordLearningRecords.find(r => r.word === word);
+      const existing = prev.wordLearningRecords.find(r => 
+        r.word === word && r.textbookId === textbookId && r.unitId === unitId
+      );
       if (existing) return prev;
+      const now = Date.now();
       return saveData({
         ...prev,
         wordLearningRecords: [
           ...prev.wordLearningRecords,
           {
             word,
-            learnedAt: Date.now(),
+            textbookId,
+            unitId,
+            learnedAt: now,
+            nextReviewAt: now + REVIEW_INTERVALS[1] * 60 * 1000,
+            reviewCount: 0,
             correctCount: 0,
-            lastReview: Date.now(),
-            intervalDays: 1,
+            wrongCount: 0,
+            currentIntervalIndex: 1,
+            isMastered: false,
           },
         ],
       });
     });
   }, [saveData]);
 
-  const recordWordReview = useCallback((word: string, correct: boolean) => {
+  const recordWordReview = useCallback((word: string, correct: boolean, textbookId?: string, unitId?: number) => {
     setUserData(prev => {
       const records = [...prev.wordLearningRecords];
-      const idx = records.findIndex(r => r.word === word);
+      const idx = records.findIndex(r => {
+        if (textbookId && unitId) {
+          return r.word === word && r.textbookId === textbookId && r.unitId === unitId;
+        }
+        return r.word === word;
+      });
+      
+      const now = Date.now();
+      
       if (idx === -1) {
+        // 如果记录不存在，创建新记录
         return saveData({
           ...prev,
           wordLearningRecords: [
             ...records,
             {
               word,
-              learnedAt: Date.now(),
+              textbookId: textbookId || 'default',
+              unitId: unitId || 0,
+              learnedAt: now,
+              nextReviewAt: now + REVIEW_INTERVALS[1] * 60 * 1000,
+              reviewCount: 1,
               correctCount: correct ? 1 : 0,
-              lastReview: Date.now(),
-              intervalDays: 1,
+              wrongCount: correct ? 0 : 1,
+              currentIntervalIndex: 1,
+              isMastered: false,
             },
           ],
         });
       }
+      
       const record = records[idx];
-      const newCount = correct ? record.correctCount + 1 : 0;
-      const newInterval = correct
-        ? Math.min(record.intervalDays * 2, 30)
-        : 1;
+      let newIntervalIndex = record.currentIntervalIndex;
+      let isMastered = record.isMastered;
+      
+      if (correct) {
+        // 答对：进入下一个间隔
+        newIntervalIndex = Math.min(record.currentIntervalIndex + 1, REVIEW_INTERVALS.length - 1);
+        // 如果已经到了最大间隔，标记为已掌握
+        if (newIntervalIndex >= REVIEW_INTERVALS.length - 1) {
+          isMastered = true;
+        }
+      } else {
+        // 答错：重置到前面的间隔
+        newIntervalIndex = Math.max(1, record.currentIntervalIndex - 2);
+      }
+      
       records[idx] = {
         ...record,
-        correctCount: newCount,
-        lastReview: Date.now(),
-        intervalDays: newInterval,
+        reviewCount: record.reviewCount + 1,
+        correctCount: record.correctCount + (correct ? 1 : 0),
+        wrongCount: record.wrongCount + (correct ? 0 : 1),
+        currentIntervalIndex: newIntervalIndex,
+        nextReviewAt: now + REVIEW_INTERVALS[newIntervalIndex] * 60 * 1000,
+        isMastered,
       };
+      
       return saveData({ ...prev, wordLearningRecords: records });
     });
   }, [saveData]);
@@ -439,14 +522,61 @@ export function useUserData() {
     return userData.inventory[itemId] || 0;
   }, [userData.inventory]);
 
+  // 检查是否已拥有某个装饰或背景
+  const ownsItem = useCallback((itemId: string): boolean => {
+    const item = findItemById(itemId);
+    if (!item) return false;
+    
+    if (item.type === 'accessory') {
+      return userData.userDecorations.ownedAccessories.includes(itemId);
+    }
+    if (item.type === 'background') {
+      return userData.userDecorations.ownedBackgrounds.includes(itemId);
+    }
+    // 食物和玩具不受此限制
+    return false;
+  }, [userData.userDecorations]);
+
   // 兑换物品
   const purchaseItem = useCallback((itemId: string): boolean => {
     const item = findItemById(itemId);
     if (!item) return false;
+    
+    // 如果是装饰或背景，检查是否已拥有
+    if (item.type === 'accessory' || item.type === 'background') {
+      if (ownsItem(itemId)) {
+        return false; // 已拥有，不能重复购买
+      }
+    }
+    
     if (!spendPoints(item.cost)) return false;
-    addItem(itemId);
+    
+    // 根据类型处理
+    if (item.type === 'accessory') {
+      // 购买装饰，添加到已拥有列表
+      setUserData(prev => saveData({
+        ...prev,
+        userDecorations: {
+          ...prev.userDecorations,
+          ownedAccessories: [...prev.userDecorations.ownedAccessories, itemId],
+        }
+      }));
+    } else if (item.type === 'background') {
+      // 购买背景，添加到已拥有列表
+      setUserData(prev => saveData({
+        ...prev,
+        userDecorations: {
+          ...prev.userDecorations,
+          ownedBackgrounds: [...prev.userDecorations.ownedBackgrounds, itemId],
+        }
+      }));
+    } else {
+      // 食物和玩具正常添加到背包
+      addItem(itemId);
+    }
+    
     return true;
-  }, [spendPoints, addItem]);
+  }, [spendPoints, addItem, ownsItem, saveData]);
 
   // 设置宠物装饰
   const setPetAccessory = useCallback((petId: string, accessory: string | null) => {
@@ -503,6 +633,7 @@ export function useUserData() {
     useItem,
     getItemCount,
     purchaseItem,
+    ownsItem,
     setPetAccessory,
     setPetBackground,
     removePet,

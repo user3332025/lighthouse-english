@@ -14,7 +14,7 @@ type BackgroundCategory = 'all' | 'nature' | 'space' | 'fantasy';
 
 export function ShopPage() {
   const navigate = useNavigate();
-  const { userData, purchaseItem, getItemCount, getActivePet } = useUserData();
+  const { userData, purchaseItem, getItemCount, getActivePet, ownsItem } = useUserData();
   const [activeTab, setActiveTab] = useState<TabType>('food');
   const [activeFoodCategory, setActiveFoodCategory] = useState<FoodCategory>('all');
   const [activeToyCategory, setActiveToyCategory] = useState<ToyCategory>('all');
@@ -246,7 +246,13 @@ export function ShopPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {currentItems.map(item => {
-            const owned = getItemCount(item.id);
+            // 对于装饰和背景，使用ownsItem检查；对于食物和玩具，使用getItemCount
+            const isOwned = item.type === 'accessory' || item.type === 'background' 
+              ? ownsItem(item.id) 
+              : getItemCount(item.id) > 0;
+            const ownedCount = item.type === 'accessory' || item.type === 'background'
+              ? (ownsItem(item.id) ? 1 : 0)
+              : getItemCount(item.id);
             const canAfford = userData.points >= item.cost;
 
             return (
@@ -254,15 +260,15 @@ export function ShopPage() {
                 key={item.id}
                 className={cn(
                   'relative bg-white rounded-2xl p-4 text-center shadow-lg transition-all',
-                  canAfford && owned === 0 && 'hover:scale-105 hover:shadow-xl cursor-pointer',
-                  !canAfford && owned === 0 && 'opacity-60',
-                  owned > 0 && 'ring-4 ring-green-400 bg-green-50'
+                  canAfford && !isOwned && 'hover:scale-105 hover:shadow-xl cursor-pointer',
+                  !canAfford && !isOwned && 'opacity-60',
+                  isOwned && 'ring-4 ring-green-400 bg-green-50'
                 )}
                 onClick={() => setSelectedItem(item)}
               >
-                {owned > 0 && (
+                {isOwned && (
                   <div className="absolute -top-2 -right-2 bg-green-500 text-white text-sm px-3 py-1 rounded-full font-bold shadow-lg">
-                    {owned}个
+                    {item.type === 'accessory' || item.type === 'background' ? '已拥有' : `${ownedCount}个`}
                   </div>
                 )}
 
@@ -322,18 +328,24 @@ export function ShopPage() {
                       e.stopPropagation();
                       handlePurchase(item);
                     }}
-                    disabled={!canAfford}
+                    disabled={!canAfford || isOwned}
                     className={cn(
                       'w-full py-2 rounded-full font-bold text-sm transition-all',
-                      canAfford
-                        ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white hover:opacity-90 active:scale-95'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      isOwned
+                        ? 'bg-green-500 text-white cursor-default'
+                        : canAfford
+                          ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white hover:opacity-90 active:scale-95'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     )}
                   >
-                    {canAfford ? `${item.cost}积分` : `需要${item.cost}积分`}
+                    {isOwned 
+                      ? '已拥有' 
+                      : canAfford 
+                        ? `${item.cost}积分` 
+                        : `需要${item.cost}积分`}
                   </button>
                   
-                  {owned > 0 && activePet && item.type === 'food' && (
+                  {isOwned && activePet && item.type === 'food' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -344,7 +356,7 @@ export function ShopPage() {
                       🍖 喂给宠物
                     </button>
                   )}
-                  {owned > 0 && activePet && item.type === 'toy' && (
+                  {isOwned && activePet && item.type === 'toy' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -355,7 +367,7 @@ export function ShopPage() {
                       🎮 陪宠物玩
                     </button>
                   )}
-                  {owned > 0 && activePet && (item.type === 'accessory' || item.type === 'background') && (
+                  {isOwned && activePet && (item.type === 'accessory' || item.type === 'background') && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

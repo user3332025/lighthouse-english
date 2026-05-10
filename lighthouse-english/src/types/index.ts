@@ -63,6 +63,12 @@ export interface Item {
   bgStyle?: string;
 }
 
+// 用户装饰和背景数据
+export interface UserDecorations {
+  ownedAccessories: string[]; // 已拥有的装饰ID列表
+  ownedBackgrounds: string[]; // 已拥有的背景ID列表
+}
+
 // 游戏进度
 export interface GameProgress {
   questionIndex: number;
@@ -203,6 +209,7 @@ export interface UserData {
   wordLearningRecords: WordLearningRecord[]; // 单词学习记录
   markedWords: MarkedWord[]; // 生词本/重点词
   petHome: PetHome; // 宠物小窝
+  userDecorations: UserDecorations; // 用户装饰和背景
   completedQuizzes?: {
     dialogue: number;
     sentence: number;

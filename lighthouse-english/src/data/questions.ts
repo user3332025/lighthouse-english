@@ -1797,13 +1797,14 @@ export const MATCHING_QUESTIONS = {
   ],
   School: [
     { word: 'book', image: '📚' },
-    { word: 'pen', image: '✏️' },
+    { word: 'pen', image: '✒️' },
+    { word: 'pencil', image: '✏️' },
     { word: 'ruler', image: '📏' },
     { word: 'eraser', image: '🧽' },
     { word: 'bag', image: '🎒' },
     { word: 'desk', image: '🗂️' },
     { word: 'chair', image: '🪑' },
-    { word: 'blackboard', image: '📝' },
+    { word: 'blackboard', image: '📋' },
   ],
 };
 

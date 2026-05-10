@@ -243,7 +243,11 @@ function WordListView({
   const progress = ((currentIndex + 1) / unit.words.length) * 100;
 
   const markAsLearned = (word: string) => {
-    if (!learnedWords.includes(word)) {
+    if (learnedWords.includes(word)) {
+      // 取消标记为已学
+      setLearnedWords(learnedWords.filter(w => w !== word));
+    } else {
+      // 标记为已学
       setLearnedWords([...learnedWords, word]);
       markWordLearned(word, textbookId, unit.id);
     }
@@ -414,9 +418,9 @@ function WordListView({
                   <button
                     onClick={() => markAsLearned(word.word)}
                     className={cn(
-                      'p-2 rounded-full transition-colors',
+                      'p-2 rounded-full transition-all duration-200',
                       learnedWords.includes(word.word)
-                        ? 'bg-green-500 text-white'
+                        ? 'bg-green-500 text-white shadow-lg scale-105'
                         : 'bg-gray-200 text-gray-500 hover:bg-green-100'
                     )}
                   >

@@ -157,13 +157,16 @@ export function ReviewPage() {
         w => w.word === record.word && w.textbookId === record.textbookId && w.unitId === record.unitId
       );
       return {
-        ...record,
+        word: record.word,
         meaning: wordInfo?.meaning || '',
         phonetic: wordInfo?.phonetic || '',
         image: wordInfo?.image || getWordImage(record.word),
+        textbookId: record.textbookId,
+        unitId: record.unitId,
         unitName: wordInfo?.unitName || '',
+        record: record,
         wordIndex: wordInfo?.wordIndex || 0,
-      } as ReviewWord;
+      };
     });
   }, [getWordsForReview, allTextbookWords]);
 
@@ -291,7 +294,7 @@ export function ReviewPage() {
     }
 
     if (currentWord.record) {
-      recordWordReview(currentWord.word, currentWord.textbookId, currentWord.unitId, isCorrect);
+      recordWordReview(currentWord.word, isCorrect, currentWord.textbookId, currentWord.unitId);
     }
 
     goToNext();
@@ -309,7 +312,7 @@ export function ReviewPage() {
       addPoints(5);
       setRoundCorrectCount(prev => prev + 1);
       if (currentWord.record) {
-        recordWordReview(currentWord.word, currentWord.textbookId, currentWord.unitId, true);
+        recordWordReview(currentWord.word, true, currentWord.textbookId, currentWord.unitId);
       }
       if (reviewMode === 'wrong') {
         const wq = wrongQuestions.find(q => q.question.word === currentWord.word);
@@ -323,7 +326,7 @@ export function ReviewPage() {
         roundWrongWords: [...prev.roundWrongWords, currentWord],
       } : null);
       if (currentWord.record) {
-        recordWordReview(currentWord.word, currentWord.textbookId, currentWord.unitId, false);
+        recordWordReview(currentWord.word, false, currentWord.textbookId, currentWord.unitId);
       }
       if (reviewMode !== 'wrong') {
         addWrongQuestion({
@@ -352,7 +355,7 @@ export function ReviewPage() {
       addPoints(10);
       setRoundCorrectCount(prev => prev + 1);
       if (currentWord.record) {
-        recordWordReview(currentWord.word, currentWord.textbookId, currentWord.unitId, true);
+        recordWordReview(currentWord.word, true, currentWord.textbookId, currentWord.unitId);
       }
     } else {
       setSession(prev => prev ? {
@@ -360,7 +363,7 @@ export function ReviewPage() {
         roundWrongWords: [...prev.roundWrongWords, currentWord],
       } : null);
       if (currentWord.record) {
-        recordWordReview(currentWord.word, currentWord.textbookId, currentWord.unitId, false);
+        recordWordReview(currentWord.word, false, currentWord.textbookId, currentWord.unitId);
       }
     }
   };
