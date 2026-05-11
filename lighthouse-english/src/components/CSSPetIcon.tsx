@@ -15,45 +15,25 @@ const PET_IMAGE_MODULES = import.meta.glob('../../image/*', {
   import: 'default',
 }) as Record<string, string>;
 
-const PET_IMAGE_TOKENS: Record<PetType, string[]> = {
-  dog: ['小狗狗', '小狗', 'dog'],
-  cat: ['小猫咪', '小猫', 'cat', '灏忕尗'],
-  rabbit: ['小兔子', '兔子', 'rabbit', '鍏斿瓙'],
-  bear: ['小熊', 'bear'],
-  fox: ['小狐狸', '狐狸', 'fox'],
-};
-
-function normalizePetImagePath(path: string): string {
-  return decodeURIComponent(path).toLowerCase();
-}
-
-function getPetImageLevelIndex(path: string): number | null {
-  const normalized = normalizePetImagePath(path);
-  const match = normalized.match(/(?:图|朹|_|-)?([0-4])\.(?:png|jpe?g|webp)$/i);
-  return match ? Number(match[1]) : null;
-}
-
-function isPetImageForType(path: string, type: PetType): boolean {
-  const normalized = normalizePetImagePath(path);
-  return (PET_IMAGE_TOKENS[type] ?? []).some(token => normalized.includes(token.toLowerCase()));
-}
-
-const PET_LEVEL_IMAGE_MAP = Object.entries(PET_IMAGE_MODULES).reduce((map, [path, src]) => {
-  const levelIndex = getPetImageLevelIndex(path);
-  if (levelIndex == null) return map;
-
-  (Object.keys(PET_IMAGE_TOKENS) as PetType[]).forEach(type => {
-    if (isPetImageForType(path, type)) {
-      map[`${type}-${levelIndex + 1}`] = src;
-    }
-  });
-
-  return map;
-}, {} as Record<string, string>);
-
 function getPetLevelImage(type: PetType, level: number): string | null {
   const safeLevel = Math.max(1, Math.min(5, level));
-  return PET_LEVEL_IMAGE_MAP[`${type}-${safeLevel}`] ?? null;
+  const extensions = ['png', 'jpg', 'jpeg', 'webp'];
+
+  for (const extension of extensions) {
+    const key = `../../image/${type}-level-${safeLevel}.${extension}`;
+    if (PET_IMAGE_MODULES[key]) {
+      return PET_IMAGE_MODULES[key];
+    }
+  }
+
+  return null;
+}
+
+function withoutLevelFrameClass(className: string): string {
+  return className
+    .split(/\s+/)
+    .filter(classToken => classToken && !/^pet-level-\d+$/.test(classToken))
+    .join(' ');
 }
 
 /** 单等级宠物的配色与特征（与绘制逻辑共用） */
@@ -822,10 +802,9 @@ export function CSSPetIcon({
   if (imageSrc) {
     return (
       <div
-        className={`relative ${className} ${moodAnimations[mood]}`}
+        className={`relative ${withoutLevelFrameClass(className)} ${moodAnimations[mood]}`}
         style={{ width: currentSize.width, height: currentSize.height }}
       >
-        <div className="absolute inset-[-8%] rounded-full bg-white/40 blur-md" />
         <img
           src={imageSrc}
           alt={`${type} level ${level}`}
