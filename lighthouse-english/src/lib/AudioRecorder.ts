@@ -1,7 +1,19 @@
 export type RecordingState = 'idle' | 'recording' | 'paused' | 'stopped' | 'error';
 
+const MIC_PERMISSION_STORAGE_KEY = 'lighthouse-english-mic-permission-granted';
 let micPermissionGranted = false;
 let cachedStream: MediaStream | null = null;
+/** 并发调用 getUserMedia 时合并为一次请求，避免重复弹出权限框 */
+let pendingMicStream: Promise<MediaStream> | null = null;
+
+if (typeof window !== 'undefined') {
+  micPermissionGranted = window.localStorage.getItem(MIC_PERMISSION_STORAGE_KEY) === 'true';
+}
+
+/** 缓存的麦克风流是否仍可用的判断（轨道结束则视为不可用，需重新获取） */
+function isCachedStreamLive(): boolean {
+  return !!cachedStream?.getTracks().some((t) => t.readyState === 'live');
+}
 
 export interface Recording {
   id: string;
@@ -31,15 +43,40 @@ export interface AudioRecorderConfig {
   maxRecordingDuration?: number;
 }
 
+export async function getMicrophoneStream(constraints: MediaStreamConstraints = { audio: true }): Promise<MediaStream> {
+  if (isCachedStreamLive()) return cachedStream!;
+
+  cachedStream = null;
+
+  if (!pendingMicStream) {
+    pendingMicStream = navigator.mediaDevices
+      .getUserMedia(constraints)
+      .then((stream) => {
+        cachedStream = stream;
+        micPermissionGranted = true;
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(MIC_PERMISSION_STORAGE_KEY, 'true');
+        }
+        return stream;
+      })
+      .finally(() => {
+        pendingMicStream = null;
+      });
+  }
+
+  return pendingMicStream;
+}
+
 export async function requestMicPermission(): Promise<boolean> {
   if (micPermissionGranted) return true;
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    micPermissionGranted = true;
-    cachedStream = stream;
+    await getMicrophoneStream({ audio: true });
     return true;
   } catch (err) {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(MIC_PERMISSION_STORAGE_KEY);
+    }
     alert("麦克风权限被拒绝，请在浏览器设置里允许麦克风权限，否则无法录音。");
     console.error("麦克风权限请求失败：", err);
     return false;
@@ -271,7 +308,7 @@ export class AudioRecorder {
           }
         };
 
-        cachedStream = await navigator.mediaDevices.getUserMedia(constraints);
+        cachedStream = await getMicrophoneStream(constraints);
       }
       this.stream = cachedStream;
 
@@ -369,12 +406,13 @@ export class AudioRecorder {
   destroy(): void {
     this.stopDurationTimer();
     this.stopVolumeAnalysis();
-    
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
+
+    // 麦克风由全局 cachedStream 复用；此处不得 stop 共享轨道，否则停止录音后会再次触发权限申请
+    if (this.stream && this.stream !== cachedStream) {
+      this.stream.getTracks().forEach((track) => track.stop());
     }
-    
+    this.stream = null;
+
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
       this.audioContext = null;

@@ -22,7 +22,7 @@ function GlobalAudioUnlock() {
   const permissionRequested = useRef(false);
 
   useEffect(() => {
-    const unlock = () => {
+    const unlock = async () => {
       unlockSpeechFromUserGesture();
       resumeAudioContext();
       try {
@@ -37,9 +37,10 @@ function GlobalAudioUnlock() {
 
       if (!permissionRequested.current) {
         permissionRequested.current = true;
-        requestMicPermission().catch(() => {
-          /* ignore permission errors - handled by individual components */
-        });
+        const granted = await requestMicPermission().catch(() => false);
+        if (!granted) {
+          permissionRequested.current = false;
+        }
       }
     };
     window.addEventListener('pointerdown', unlock, { passive: true });

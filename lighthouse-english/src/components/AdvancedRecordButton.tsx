@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Pause, Play, StopCircle, ArrowRight, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { cn, calculateSimilarity } from '@/lib/utils';
 import { unlockAudioFromButtonTap } from '@/lib/gameSfx';
-import { requestMicPermission } from '@/lib/AudioRecorder';
+import { requestMicPermission, getMicrophoneStream } from '@/lib/AudioRecorder';
 
 export type EncouragementTier = 'excellent' | 'well' | 'good' | 'retry';
 
@@ -78,6 +78,7 @@ export function AdvancedRecordButton({
   const sessionGenRef = useRef(0);
   const sessionErrorRef = useRef<string | null>(null);
   const latestTranscriptRef = useRef('');
+  const stopRequestedRef = useRef(false);
 
   const sizeClasses = {
     sm: 'w-8 h-8 text-sm',
@@ -320,6 +321,16 @@ export function AdvancedRecordButton({
       return;
     }
 
+    const hasPermission = await requestMicPermission();
+    if (!hasPermission) {
+      setIsRecording(false);
+      setIsProcessing(false);
+      setFeedback('请允许麦克风权限以使用录音功能');
+      setShowResult(true);
+      return;
+    }
+
+    stopRequestedRef.current = false;
     unlockAudioFromButtonTap();
     try {
       window.speechSynthesis?.cancel?.();
@@ -360,9 +371,7 @@ export function AdvancedRecordButton({
 
     try {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
+      const stream = await getMicrophoneStream({ audio: true });
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
       dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
@@ -392,6 +401,10 @@ export function AdvancedRecordButton({
       const code = event.error as string;
 
       if (code === 'not-allowed') {
+        if (stopRequestedRef.current) {
+          stopRequestedRef.current = false;
+          return;
+        }
         sessionGenRef.current += 1;
         if (recognitionRef.current === recognitionInstance) {
           recognitionRef.current = null;
@@ -424,6 +437,7 @@ export function AdvancedRecordButton({
       if (recognitionRef.current === recognitionInstance) {
         recognitionRef.current = null;
       }
+      stopRequestedRef.current = false;
       setIsRecording(false);
       setIsProcessing(false);
 
@@ -499,6 +513,7 @@ export function AdvancedRecordButton({
   };
 
   const stopRecording = () => {
+    stopRequestedRef.current = true;
     try {
       recognitionRef.current?.stop?.();
     } catch { /* ignore */ }

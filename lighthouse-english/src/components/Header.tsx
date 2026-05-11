@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Star, Volume2, VolumeX, Home } from 'lucide-react';
+import { ArrowLeft, Star, Volume2, VolumeX, Home } from 'lucide-react';
 import { useUserData } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
 
@@ -7,9 +7,11 @@ interface HeaderProps {
   showBack?: boolean;
   title?: string;
   points?: number;
+  /** 传入则优先执行（用于单路由内多步骤），否则为浏览器历史后退 */
+  onBack?: () => void;
 }
 
-export function Header({ showBack = false, title }: HeaderProps) {
+export function Header({ showBack = false, title, onBack }: HeaderProps) {
   const navigate = useNavigate();
   const { userData, setVoiceEnabled, PET_FACES } = useUserData();
 
@@ -24,10 +26,13 @@ export function Header({ showBack = false, title }: HeaderProps) {
           <div className="flex items-center gap-2">
             {showBack ? (
               <button
-                onClick={() => navigate('/')}
+                type="button"
+                title="返回上一页"
+                aria-label="返回上一页"
+                onClick={() => (onBack ? onBack() : navigate(-1))}
                 className="p-2 rounded-full hover:bg-primary-600 transition-colors"
               >
-                <Home className="w-6 h-6" />
+                <ArrowLeft className="w-6 h-6" />
               </button>
             ) : (
               <button

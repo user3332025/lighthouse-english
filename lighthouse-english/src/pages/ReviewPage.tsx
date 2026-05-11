@@ -1216,7 +1216,7 @@ export function ReviewPage() {
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
-        <Header showBack title="复习完成" />
+        <Header showBack title="复习完成" onBack={handleBackToHome} />
         <div className="max-w-4xl mx-auto px-4 mt-6">
           <div className="bg-white rounded-2xl p-6 shadow-warm-lg text-center mb-6">
             <div className="text-6xl mb-4 animate-bounce">🎉</div>
@@ -1343,13 +1343,17 @@ export function ReviewPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
-      <Header showBack={false} title={`${roundNumber > 1 ? `第${roundNumber}轮 - ` : ''}${
-        reviewMode === 'smart' ? '今日复习' :
-        reviewMode === 'wrong' ? '错题复习' :
-        reviewMode === 'marked' ? '重点词复习' :
-        reviewMode === 'all' ? '全部复习' :
-        '快速复习'
-      }`} />
+      <Header
+        showBack
+        title={`${roundNumber > 1 ? `第${roundNumber}轮 - ` : ''}${
+          reviewMode === 'smart' ? '今日复习' :
+          reviewMode === 'wrong' ? '错题复习' :
+          reviewMode === 'marked' ? '重点词复习' :
+          reviewMode === 'all' ? '全部复习' :
+          '快速复习'
+        }`}
+        onBack={handleBackToHome}
+      />
       <div className="max-w-4xl mx-auto px-4 mt-6">
         <div className="bg-white rounded-2xl shadow-warm-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -1506,7 +1510,7 @@ export function ReviewPage() {
           {questionType === 'listening' && (
             <div className="text-center">
               <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-8 mb-6">
-                <SpeechButton word={currentWord?.word || ''} className="mb-4" />
+                <SpeechButton text={currentWord?.word || ''} className="mb-4" />
                 <p className="text-gray-500">点击喇叭听发音</p>
               </div>
 
@@ -1555,7 +1559,7 @@ export function ReviewPage() {
               <div className="bg-gradient-to-br from-orange-100 to-amber-100 rounded-2xl p-8 mb-6">
                 <p className="text-gray-500 mb-2">根据释义拼写单词</p>
                 <p className="text-2xl font-bold text-gray-800 mb-2">{currentWord?.meaning}</p>
-                <SpeechButton word={currentWord?.word || ''} className="mb-2" />
+                <SpeechButton text={currentWord?.word || ''} className="mb-2" />
                 {showSpellingHint && (
                   <div className="mt-2">
                     <p className="text-gray-500 text-sm">提示：{currentWord?.word.substring(0, session.spellingHintLevel + 1)}...</p>

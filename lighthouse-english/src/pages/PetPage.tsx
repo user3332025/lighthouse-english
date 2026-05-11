@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star, Heart, Utensils, Sparkles, Sun, Moon } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -91,6 +91,25 @@ export function PetPage() {
   const [currentMood, setCurrentMood] = useState<{ emoji: string; text: string } | null>(null);
 
   const activePet = getActivePet();
+
+  // 已拥有的装饰配件列表（用于底部弹窗，仅展示可更换项）
+  const ownedAccessoryPickerItems = useMemo(
+    () =>
+      PET_ITEMS.accessory.filter((item: Item) =>
+        userData.userDecorations.ownedAccessories.includes(item.id)
+      ),
+    [userData.userDecorations.ownedAccessories]
+  );
+
+  // 喂食/玩耍卡片内仅展示背包中已拥有的食物与玩具（数量 > 0）
+  const ownedFoodsOnPetPage = useMemo(
+    () => PET_ITEMS.food.filter((food) => (userData.inventory[food.id] || 0) > 0),
+    [userData.inventory]
+  );
+  const ownedToysOnPetPage = useMemo(
+    () => PET_ITEMS.toy.filter((toy) => (userData.inventory[toy.id] || 0) > 0),
+    [userData.inventory]
+  );
 
   useEffect(() => {
     if (!activePet) return;
@@ -667,24 +686,17 @@ export function PetPage() {
               <Utensils className="w-5 h-5 text-orange-500" />
               <h3 className="font-bold text-gray-800">喂食</h3>
             </div>
-            <p className="text-sm text-gray-500 mb-3">消耗食物恢复饥饿值，获得经验</p>
+            <p className="text-sm text-gray-500 mb-3">消耗背包中的食物恢复饥饿值，获得经验</p>
             <div className="flex flex-wrap gap-2">
-              {PET_ITEMS.food.slice(0, 4).map((food) => (
-                <button
-                  key={food.id}
-                  onClick={() => {
-                    if (getItemCount(food.id) > 0) {
-                      useItem(food.id);
-                      feedPet(activePet!.id, food.id);
-                      setCurrentAction('eating');
-                      setFeedSuccess(true);
-                      setTimeout(() => {
-                        setFeedSuccess(false);
-                        setCurrentAction(null);
-                      }, 1500);
-                    } else {
-                      if (userData.points >= food.cost) {
-                        spendPoints(food.cost);
+              {ownedFoodsOnPetPage.length === 0 ? (
+                <div className="text-sm text-gray-400 w-full py-1">暂无食物，请到商店购买后再来喂食</div>
+              ) : (
+                ownedFoodsOnPetPage.map((food) => (
+                  <button
+                    key={food.id}
+                    onClick={() => {
+                      if (getItemCount(food.id) > 0) {
+                        useItem(food.id);
                         feedPet(activePet!.id, food.id);
                         setCurrentAction('eating');
                         setFeedSuccess(true);
@@ -693,30 +705,41 @@ export function PetPage() {
                           setCurrentAction(null);
                         }, 1500);
                       } else {
-                        alert('积分不足！');
+                        if (userData.points >= food.cost) {
+                          spendPoints(food.cost);
+                          feedPet(activePet!.id, food.id);
+                          setCurrentAction('eating');
+                          setFeedSuccess(true);
+                          setTimeout(() => {
+                            setFeedSuccess(false);
+                            setCurrentAction(null);
+                          }, 1500);
+                        } else {
+                          alert('积分不足！');
+                        }
                       }
-                    }
-                  }}
-                  className={cn(
-                    'rounded-xl px-3 py-2 flex items-center gap-2 transition-all',
-                    getItemCount(food.id) > 0
-                      ? 'bg-orange-50 hover:bg-orange-100'
-                      : 'bg-gray-50 opacity-70'
-                  )}
-                >
-                  <span className="text-xl">{food.emoji}</span>
-                  <span className="text-sm font-medium text-gray-700">{food.name}</span>
-                  {getItemCount(food.id) > 0 ? (
-                    <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                      x{getItemCount(food.id)}
-                    </span>
-                  ) : (
-                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
-                      {food.cost}⭐
-                    </span>
-                  )}
-                </button>
-              ))}
+                    }}
+                    className={cn(
+                      'rounded-xl px-3 py-2 flex items-center gap-2 transition-all',
+                      getItemCount(food.id) > 0
+                        ? 'bg-orange-50 hover:bg-orange-100'
+                        : 'bg-gray-50 opacity-70'
+                    )}
+                  >
+                    <span className="text-xl">{food.emoji}</span>
+                    <span className="text-sm font-medium text-gray-700">{food.name}</span>
+                    {getItemCount(food.id) > 0 ? (
+                      <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                        x{getItemCount(food.id)}
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                        {food.cost}⭐
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
             </div>
             <button
               onClick={handleFeed}
@@ -737,27 +760,31 @@ export function PetPage() {
               <Heart className="w-5 h-5 text-pink-500" />
               <h3 className="font-bold text-gray-800">玩耍</h3>
             </div>
-            <p className="text-sm text-gray-500 mb-3">使用玩具增加快乐值，获得经验</p>
+            <p className="text-sm text-gray-500 mb-3">使用背包中的玩具增加快乐值，获得经验</p>
             <div className="flex flex-wrap gap-2">
-              {PET_ITEMS.toy.slice(0, 4).map((toy) => (
-                <button
-                  key={toy.id}
-                  onClick={() => handlePlay(toy.id)}
-                  disabled={getItemCount(toy.id) === 0}
-                  className={cn(
-                    'rounded-xl px-3 py-2 flex items-center gap-2 transition-all',
-                    getItemCount(toy.id) > 0
-                      ? 'bg-pink-50 hover:bg-pink-100'
-                      : 'bg-gray-50 opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  <span className="text-xl">{toy.emoji}</span>
-                  <span className="text-sm font-medium text-gray-700">{toy.name}</span>
-                  <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">
-                    x{getItemCount(toy.id)}
-                  </span>
-                </button>
-              ))}
+              {ownedToysOnPetPage.length === 0 ? (
+                <div className="text-sm text-gray-400 w-full py-1">暂无玩具，请到商店购买后再来玩耍</div>
+              ) : (
+                ownedToysOnPetPage.map((toy) => (
+                  <button
+                    key={toy.id}
+                    onClick={() => handlePlay(toy.id)}
+                    disabled={getItemCount(toy.id) === 0}
+                    className={cn(
+                      'rounded-xl px-3 py-2 flex items-center gap-2 transition-all',
+                      getItemCount(toy.id) > 0
+                        ? 'bg-pink-50 hover:bg-pink-100'
+                        : 'bg-gray-50 opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    <span className="text-xl">{toy.emoji}</span>
+                    <span className="text-sm font-medium text-gray-700">{toy.name}</span>
+                    <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">
+                      x{getItemCount(toy.id)}
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
             <button
               onClick={() => navigate('/shop')}
@@ -789,11 +816,18 @@ export function PetPage() {
           </div>
           
           {!activePet ? (
-            <div className="text-center py-4 text-gray-500">
+            <div
+              className="text-center py-4 text-gray-500"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="text-4xl mb-2">🐾</div>
               <p className="text-sm">领养宠物后可以开始装扮！</p>
               <button
-                onClick={() => navigate('/pet')}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('/pet');
+                }}
                 className="mt-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
               >
                 前往领养 →
@@ -801,12 +835,20 @@ export function PetPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              {/* 阻止冒泡：避免点击装扮区域时触发外层跳转商店，便于「更换」与已拥有配件切换 */}
+              <div
+                className="grid grid-cols-2 gap-4"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="bg-white rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700">👑 装饰配件</span>
                   <button 
-                    onClick={() => setShowAccessorySelector(true)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAccessorySelector(true);
+                    }}
                     className="text-xs text-purple-600 hover:text-purple-700"
                   >
                     更换
@@ -819,8 +861,10 @@ export function PetPage() {
                       const isActive = activePet?.accessory === id;
                       return item ? (
                         <button
+                          type="button"
                           key={id}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (isActive) {
                               setPetAccessory(activePet!.id, null);
                             } else {
@@ -848,7 +892,11 @@ export function PetPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700">🌸 背景装饰</span>
                   <button 
-                    onClick={() => setShowBackgroundSelector(true)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBackgroundSelector(true);
+                    }}
                     className="text-xs text-purple-600 hover:text-purple-700"
                   >
                     更换
@@ -861,8 +909,10 @@ export function PetPage() {
                       const isActive = activePet?.background === id;
                       return item ? (
                         <button
+                          type="button"
                           key={id}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (isActive) {
                               setPetBackground(activePet!.id, null);
                             } else {
@@ -921,34 +971,37 @@ export function PetPage() {
                   </button>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {PET_ITEMS.accessory.map((item: Item) => {
-                    const owned = ownsItem(item.id);
-                    const isActive = activePet?.accessory === item.id;
-                    
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          if (owned && activePet) {
-                            setPetAccessory(activePet.id, item.id);
-                            setShowAccessorySelector(false);
-                          }
-                        }}
-                        disabled={!owned}
-                        className={cn(
-                          'p-3 rounded-xl border-2 transition-all',
-                          isActive ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-300' : 'border-gray-200',
-                          owned ? 'hover:border-purple-400 hover:bg-purple-50' : 'opacity-50 cursor-not-allowed'
-                        )}
-                      >
-                        <div className="text-4xl mb-2">{item.emoji}</div>
-                        <div className="text-sm">{item.name}</div>
-                        {!owned && (
-                          <div className="text-xs text-red-500">未拥有</div>
-                        )}
-                      </button>
-                    );
-                  })}
+                  {ownedAccessoryPickerItems.length === 0 ? (
+                    <div className="col-span-full text-center py-8 text-gray-500 text-sm">
+                      暂无已拥有的装饰配件，可在商店兑换后再来更换。
+                    </div>
+                  ) : (
+                    ownedAccessoryPickerItems.map((item: Item) => {
+                      const isActive = activePet?.accessory === item.id;
+
+                      return (
+                        <button
+                          type="button"
+                          key={item.id}
+                          onClick={() => {
+                            if (activePet) {
+                              setPetAccessory(activePet.id, item.id);
+                              setShowAccessorySelector(false);
+                            }
+                          }}
+                          className={cn(
+                            'p-3 rounded-xl border-2 transition-all',
+                            isActive
+                              ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-300'
+                              : 'border-gray-200 hover:border-purple-400 hover:bg-purple-50'
+                          )}
+                        >
+                          <div className="text-4xl mb-2">{item.emoji}</div>
+                          <div className="text-sm">{item.name}</div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>

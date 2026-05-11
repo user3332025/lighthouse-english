@@ -65,6 +65,7 @@ export function RecordButton({
   const sessionErrorRef = useRef<string | null>(null);
   /** onend 时 React 的 transcript 仍是点击瞬间的旧值；用 ref 存当前识别到的整段文本 */
   const latestTranscriptRef = useRef('');
+  const stopRequestedRef = useRef(false);
 
   const sizeClasses = {
     sm: 'w-8 h-8 text-sm',
@@ -172,6 +173,7 @@ export function RecordButton({
       /* ignore */
     }
 
+    stopRequestedRef.current = false;
     const instanceId = ++sessionGenRef.current;
 
     // 若上一轮未清干净，先停掉
@@ -221,6 +223,10 @@ export function RecordButton({
       const code = event.error as string;
 
       if (code === 'not-allowed') {
+        if (stopRequestedRef.current) {
+          stopRequestedRef.current = false;
+          return;
+        }
         sessionGenRef.current += 1;
         if (recognitionRef.current === recognitionInstance) {
           recognitionRef.current = null;
@@ -253,6 +259,7 @@ export function RecordButton({
       if (recognitionRef.current === recognitionInstance) {
         recognitionRef.current = null;
       }
+      stopRequestedRef.current = false;
       setIsRecording(false);
       setIsProcessing(false);
 
