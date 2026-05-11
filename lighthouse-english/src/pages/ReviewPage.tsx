@@ -130,8 +130,30 @@ export function ReviewPage() {
   const [roundNumber, setRoundNumber] = useState(1);
   const [showQuickReviewConfirm, setShowQuickReviewConfirm] = useState(false);
   const [showWrongWordDetail, setShowWrongWordDetail] = useState(false);
+  const [showMarkedWordDetail, setShowMarkedWordDetail] = useState(false);
   const [isMarkedLocal, setIsMarkedLocal] = useState<boolean | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0);
+  
+  // 每日学习目标
+  const [dailyGoal, setDailyGoal] = useState(20);
+  const [todayReviewed, setTodayReviewed] = useState(0);
+  
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const savedTodayReviewed = localStorage.getItem(`reviewed_${today}`);
+    if (savedTodayReviewed) {
+      setTodayReviewed(parseInt(savedTodayReviewed));
+    }
+    const savedGoal = localStorage.getItem('dailyReviewGoal');
+    if (savedGoal) {
+      setDailyGoal(parseInt(savedGoal));
+    }
+  }, []);
+  
+  const saveTodayReviewed = (count: number) => {
+    const today = new Date().toDateString();
+    localStorage.setItem(`reviewed_${today}`, count.toString());
+  };
 
   const allTextbookWords = useMemo(() => {
     const words: ReviewWord[] = [];
@@ -464,6 +486,11 @@ export function ReviewPage() {
         setRoundCorrectCount(0);
         setRoundTotalCount(wrongWords.length);
       } else {
+        // 增加今日复习数量
+        const reviewedCount = session.words.length;
+        const newTodayReviewed = todayReviewed + reviewedCount;
+        setTodayReviewed(newTodayReviewed);
+        saveTodayReviewed(newTodayReviewed);
         setGameOver(true);
       }
     } else {
@@ -534,7 +561,7 @@ export function ReviewPage() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 mb-4">
               <div className="text-center p-3 bg-blue-50 rounded-xl">
                 <p className="text-2xl font-bold text-blue-600">{stats.totalLearned}</p>
                 <p className="text-xs text-gray-500">已学习</p>
@@ -546,6 +573,41 @@ export function ReviewPage() {
               <div className="text-center p-3 bg-orange-50 rounded-xl">
                 <p className="text-2xl font-bold text-orange-600">{stats.pendingCount}</p>
                 <p className="text-xs text-gray-500">待复习</p>
+              </div>
+            </div>
+            
+            {/* 每日学习目标 */}
+            <div className="bg-gradient-to-r from-primary-50 to-purple-50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium text-gray-700">🎯 今日复习目标</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-primary-600">{todayReviewed}</span>
+                  <span className="text-gray-400">/</span>
+                  <span className="text-gray-600">{dailyGoal}</span>
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="h-full bg-gradient-to-r from-primary-500 to-purple-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (todayReviewed / dailyGoal) * 100)}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500">
+                  {todayReviewed >= dailyGoal ? '🎉 目标达成！' : `还需复习 ${Math.max(0, dailyGoal - todayReviewed)} 个单词`}
+                </span>
+                <button
+                  onClick={() => {
+                    const newGoal = prompt('设置每日复习目标:', dailyGoal.toString());
+                    if (newGoal && parseInt(newGoal) > 0) {
+                      setDailyGoal(parseInt(newGoal));
+                      localStorage.setItem('dailyReviewGoal', newGoal);
+                    }
+                  }}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  修改目标
+                </button>
               </div>
             </div>
           </div>
@@ -629,8 +691,7 @@ export function ReviewPage() {
             </button>
 
             <button
-              onClick={startMarkedReview}
-              disabled={markedWords.length === 0}
+              onClick={() => setShowMarkedWordDetail(true)}
               className={cn(
                 'bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-5 text-white text-left',
                 'hover:opacity-90 transition-all shadow-warm',
@@ -669,6 +730,41 @@ export function ReviewPage() {
               </div>
               <div className="text-3xl font-bold">{learnedWords.length}</div>
             </button>
+          </div>
+
+          {/* 学习成就徽章 */}
+          <div className="bg-white rounded-2xl p-6 shadow-warm-lg mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">🏆 学习成就</h3>
+            <div className="flex flex-wrap justify-center gap-3">
+              {[
+                { emoji: '🌟', name: '初学者', desc: '学习第一个单词', unlocked: stats.totalLearned >= 1 },
+                { emoji: '📚', name: '勤奋者', desc: '学习10个单词', unlocked: stats.totalLearned >= 10 },
+                { emoji: '🎯', name: '目标达成', desc: '完成每日目标', unlocked: todayReviewed >= dailyGoal },
+                { emoji: '💯', name: '满分王', desc: '复习正确率100%', unlocked: stats.masteredCount >= 5 },
+                { emoji: '🔥', name: '连续学习', desc: '连续复习7天', unlocked: false },
+                { emoji: '👑', name: '词汇大师', desc: '掌握50个单词', unlocked: stats.masteredCount >= 50 },
+                { emoji: '🎧', name: '听力达人', desc: '听力全对', unlocked: false },
+                { emoji: '✍️', name: '拼写高手', desc: '拼写全对', unlocked: false },
+              ].map((badge, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'flex flex-col items-center p-3 rounded-xl transition-all',
+                    badge.unlocked
+                      ? 'bg-gradient-to-br from-yellow-50 to-orange-50 opacity-100'
+                      : 'bg-gray-100 opacity-50'
+                  )}
+                >
+                  <span className="text-3xl mb-1">{badge.emoji}</span>
+                  <span className={cn(
+                    'text-xs font-medium',
+                    badge.unlocked ? 'text-gray-700' : 'text-gray-400'
+                  )}>
+                    {badge.name}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* 复习流程说明 */}
@@ -725,10 +821,82 @@ export function ReviewPage() {
             </div>
           )}
 
+          {/* 重点词详情弹窗 */}
+          {showMarkedWordDetail && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-800">⭐ 重点词 ({markedWords.length})</h3>
+                  <button
+                    onClick={() => setShowMarkedWordDetail(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {markedWords.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
+                    <div className="text-6xl mb-3">📝</div>
+                    <p className="text-lg">还没有标记重点词</p>
+                    <p className="text-sm text-gray-400 mt-2">在学习或复习时点击 ⭐ 标记重点词</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* 重点词列表 */}
+                    <div className="space-y-3 flex-1 overflow-y-auto">
+                      {markedWords.map((mw, idx) => {
+                        const word = allTextbookWords.find(
+                          w => w.word === mw.word && w.textbookId === mw.textbookId && w.unitId === mw.unitId
+                        );
+                        return (
+                          <div
+                            key={`${mw.word}-${mw.textbookId}-${mw.unitId}`}
+                            className="bg-yellow-50 rounded-xl p-4 flex items-center gap-3"
+                          >
+                            <div className="text-3xl">{word?.image || getWordImage(mw.word)}</div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-800">{mw.word}</span>
+                                <span className="text-yellow-500">⭐</span>
+                              </div>
+                              <div className="text-gray-600 text-sm">{mw.meaning}</div>
+                              <div className="text-gray-400 text-xs mt-1">
+                                {mw.phonetic}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                removeMarkedWord(mw.word, mw.textbookId, mw.unitId);
+                              }}
+                              className="px-3 py-1 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300"
+                            >
+                              取消标记
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setShowMarkedWordDetail(false);
+                        startMarkedReview();
+                      }}
+                      className="w-full py-3 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 mt-4"
+                    >
+                      开始复习重点词
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 错题本详情弹窗 */}
           {showWrongWordDetail && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[85vh] flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-gray-800">❌ 错题本 ({wrongQuestions.length})</h3>
                   <button
@@ -740,51 +908,89 @@ export function ReviewPage() {
                 </div>
 
                 {wrongQuestions.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">🎉</div>
-                    <p>太棒了！没有错题</p>
+                  <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
+                    <div className="text-6xl mb-3">🎉</div>
+                    <p className="text-lg">太棒了！没有错题</p>
+                    <p className="text-sm text-gray-400 mt-2">继续保持！</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 mb-4">
-                    {wrongQuestions.map((wq, idx) => {
-                      const word = allTextbookWords.find(w => w.word === wq.question.word);
-                      return (
-                        <div
-                          key={wq.id}
-                          className="bg-red-50 rounded-xl p-4 flex items-center gap-3"
-                        >
-                          <div className="text-3xl">{word?.image || getWordImage(wq.question.word || '')}</div>
-                          <div className="flex-1">
-                            <div className="font-bold text-gray-800">{wq.question.word}</div>
-                            <div className="text-gray-600 text-sm">{wq.question.correctAnswer}</div>
-                            <div className="text-gray-400 text-xs mt-1">
-                              答错 {(wq.wrongCount || 0) + 1} 次
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              markWrongQuestionCorrect(wq.id);
-                            }}
-                            className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
-                          >
-                            掌握了
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                  <>
+                    {/* 操作按钮 */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => {
+                          wrongQuestions.forEach(wq => {
+                            markWrongQuestionCorrect(wq.id);
+                          });
+                        }}
+                        className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
+                      >
+                        🎯 全部标记掌握
+                      </button>
+                      <button
+                        onClick={() => {
+                          wrongQuestions.forEach(wq => {
+                            markWrongQuestionCorrect(wq.id);
+                          });
+                        }}
+                        className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
+                      >
+                        🗑️ 清空错题
+                      </button>
+                    </div>
 
-                {wrongQuestions.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setShowWrongWordDetail(false);
-                      startWrongReview();
-                    }}
-                    className="w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600"
-                  >
-                    开始复习错题
-                  </button>
+                    {/* 错题列表 */}
+                    <div className="space-y-3 flex-1 overflow-y-auto">
+                      {wrongQuestions.map((wq, idx) => {
+                        const word = allTextbookWords.find(w => w.word === wq.question.word);
+                        return (
+                          <div
+                            key={wq.id}
+                            className="bg-red-50 rounded-xl p-4 flex items-center gap-3"
+                          >
+                            <div className="text-3xl">{word?.image || getWordImage(wq.question.word || '')}</div>
+                            <div className="flex-1">
+                              <div className="font-bold text-gray-800">{wq.question.word}</div>
+                              <div className="text-gray-600 text-sm">{wq.question.correctAnswer}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-gray-400 text-xs">
+                                  答错 {(wq.wrongCount || 0) + 1} 次
+                                </span>
+                                {wq.question.type === 'listening' && (
+                                  <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-xs">
+                                    听力
+                                  </span>
+                                )}
+                                {wq.question.type === 'matching' && (
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs">
+                                    选义
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                markWrongQuestionCorrect(wq.id);
+                              }}
+                              className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
+                            >
+                              掌握了
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setShowWrongWordDetail(false);
+                        startWrongReview();
+                      }}
+                      className="w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 mt-4"
+                    >
+                      开始复习错题
+                    </button>
+                  </>
                 )}
               </div>
             </div>
