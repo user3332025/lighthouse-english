@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { SpeechButton } from '@/components/SpeechButton';
 import { useUserData } from '@/hooks/useUserData';
 import { cn, shuffleArray } from '@/lib/utils';
 import { GRADE_3A, GRADE_3B } from '@/data/wordLearning';
-import type { QuestionData } from '@/types';
+import type { QuestionData, WordLearningRecord } from '@/types';
 
 type ReviewMode = 'home' | 'smart' | 'wrong' | 'marked' | 'all' | 'quick';
 type QuestionType = 'flashcard' | 'select' | 'listening' | 'spelling';
@@ -19,7 +19,7 @@ interface ReviewWord {
   textbookId: string;
   unitId: number;
   unitName: string;
-  record?: any;
+  record?: WordLearningRecord;
   wordIndex: number;
   originalQuestionType?: 'phonetic' | 'sentence' | 'dialogue' | 'listening' | 'matching' | 'ordering';
   originalQuestion?: QuestionData;
@@ -569,6 +569,12 @@ export function ReviewPage() {
   };
 
   const stats = getReviewStats();
+
+  useEffect(() => {
+    if (currentWord) {
+      setIsMarkedLocal(isWordMarked(currentWord.word, currentWord.textbookId, currentWord.unitId));
+    }
+  }, [currentWord, isWordMarked, forceUpdate]);
 
   if (!started) {
     return (
@@ -1249,23 +1255,23 @@ export function ReviewPage() {
               )}
               {环节Stats.selectStats.total > 0 && (
                 <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="text-sm text-blue-700 font-bold mb-2">✍️ 选义练习</p>
+                  <p className="text-sm text-blue-700 font-bold mb-2">📝 选义练习</p>
                   <p className="text-2xl font-bold text-blue-600">{环节Stats.selectStats.correct}/{环节Stats.selectStats.total}</p>
-                  <p className="text-xs text-gray-500">正确率</p>
+                  <p className="text-xs text-gray-500">正确数</p>
                 </div>
               )}
               {环节Stats.listeningStats.total > 0 && (
                 <div className="bg-green-50 rounded-xl p-4">
                   <p className="text-sm text-green-700 font-bold mb-2">🎧 听力训练</p>
                   <p className="text-2xl font-bold text-green-600">{环节Stats.listeningStats.correct}/{环节Stats.listeningStats.total}</p>
-                  <p className="text-xs text-gray-500">正确率</p>
+                  <p className="text-xs text-gray-500">正确数</p>
                 </div>
               )}
               {环节Stats.spellingStats.total > 0 && (
                 <div className="bg-orange-50 rounded-xl p-4">
-                  <p className="text-sm text-orange-700 font-bold mb-2">⌨️ 拼写测试</p>
+                  <p className="text-sm text-orange-700 font-bold mb-2">✍️ 拼写测试</p>
                   <p className="text-2xl font-bold text-orange-600">{环节Stats.spellingStats.correct}/{环节Stats.spellingStats.total}</p>
-                  <p className="text-xs text-gray-500">正确率</p>
+                  <p className="text-xs text-gray-500">正确数</p>
                 </div>
               )}
             </div>
@@ -1273,7 +1279,7 @@ export function ReviewPage() {
 
           {allWrongWords.length > 0 && (
             <div className="bg-white rounded-2xl p-6 shadow-warm-lg mb-6">
-              <p className="text-red-700 font-bold mb-3 text-center">❌ 需要重点复习的单词 ({allWrongWords.length}个)</p>
+              <p className="text-red-700 font-bold mb-3 text-center">⚠️ 需要重点复习的单词 ({allWrongWords.length}个)</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {allWrongWords.slice(0, 20).map((w, i) => (
                   <span key={i} className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
@@ -1298,7 +1304,7 @@ export function ReviewPage() {
                 }}
                 className="w-full py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600"
               >
-                再复习一遍错词
+                再复习一遍错题
               </button>
             )}
             <button
@@ -1326,20 +1332,311 @@ export function ReviewPage() {
     showAnswer,
     selectedAnswer,
     isCorrect,
-    spellingInput,
+    spellingInput: _spellingInput,
     showSpellingHint,
     stageIndex,
     currentIndex,
   } = session;
 
   const totalCount = session.words.length;
-  useEffect(() => {
-    setIsMarkedLocal(currentWord ? isWordMarked(currentWord.word, currentWord.textbookId, currentWord.unitId) : false);
-  }, [currentWord, isWordMarked, forceUpdate]);
   const isMarked = isMarkedLocal ?? (currentWord && isWordMarked(currentWord.word, currentWord.textbookId, currentWord.unitId));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
       <Header showBack={false} title={`${roundNumber > 1 ? `第${roundNumber}轮 - ` : ''}${
         reviewMode === 'smart' ? '今日复习' :
-        reviewMode === 'wrong' ? '
+        reviewMode === 'wrong' ? '错题复习' :
+        reviewMode === 'marked' ? '重点词复习' :
+        reviewMode === 'all' ? '全部复习' :
+        '快速复习'
+      }`} />
+      <div className="max-w-4xl mx-auto px-4 mt-6">
+        <div className="bg-white rounded-2xl shadow-warm-lg p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">{currentWord?.image || '📚'}</div>
+              <div>
+                <p className="text-sm text-gray-500">
+                  第 {currentIndex + 1} / {totalCount} 个
+                  {roundNumber > 1 && ` (第${roundNumber}轮)`}
+                </p>
+                <div className="w-32 bg-gray-200 rounded-full h-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary-500 to-purple-500 rounded-full transition-all"
+                    style={{ width: `${((currentIndex + 1) / totalCount) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleMarkWord}
+                className={cn(
+                  'p-2 rounded-full transition-all',
+                  isMarked ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                )}
+              >
+                ⭐
+              </button>
+              <button
+                onClick={handleBackToHome}
+                className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center mb-6">
+            <div className="flex justify-center gap-2 mb-2">
+              {['flashcard', 'select', 'listening', 'spelling'].map((type, idx) => (
+                <div
+                  key={type}
+                  className={cn(
+                    'w-3 h-3 rounded-full transition-all',
+                    idx < stageIndex ? 'bg-primary-500' : 'bg-gray-300'
+                  )}
+                />
+              ))}
+            </div>
+            <p className="text-sm text-gray-500">
+              {stageIndex === 1 && '闪卡回忆'}
+              {stageIndex === 2 && '选义练习'}
+              {stageIndex === 3 && '听力训练'}
+              {stageIndex === 4 && '拼写测试'}
+            </p>
+          </div>
+
+          {questionType === 'flashcard' && (
+            <div className="text-center">
+              <div className="bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl p-8 mb-6">
+                {showAnswer ? (
+                  <>
+                    <h2 className="text-4xl font-bold text-gray-800 mb-2">{currentWord?.word}</h2>
+                    <p className="text-xl text-gray-600">{currentWord?.meaning}</p>
+                    <p className="text-gray-400 mt-2">{currentWord?.phonetic}</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-4xl font-bold text-gray-800 mb-2">{currentWord?.word}</h2>
+                    <p className="text-gray-400 mt-4">点击卡片查看释义</p>
+                  </>
+                )}
+              </div>
+
+              {showAnswer ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleFlashcardResult('know')}
+                    className="flex-1 py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors"
+                  >
+                    🎉 认识
+                  </button>
+                  <button
+                    onClick={() => handleFlashcardResult('fuzzy')}
+                    className="flex-1 py-4 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 transition-colors"
+                  >
+                    😕 模糊
+                  </button>
+                  <button
+                    onClick={() => handleFlashcardResult('unknown')}
+                    className="flex-1 py-4 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors"
+                  >
+                    ❌ 不认识
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSession(prev => prev ? { ...prev, showAnswer: true } : null)}
+                  className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors"
+                >
+                  点击查看释义 →
+                </button>
+              )}
+            </div>
+          )}
+
+          {questionType === 'select' && (
+            <div className="text-center">
+              <div className="bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl p-8 mb-6">
+                <h2 className="text-4xl font-bold text-gray-800 mb-2">{currentWord?.word}</h2>
+                <p className="text-gray-400">{currentWord?.phonetic}</p>
+              </div>
+
+              <div className="space-y-3">
+                {shuffleArray([
+                  currentWord?.originalQuestion?.correctAnswer || currentWord?.meaning,
+                  ...options
+                ]).map((option, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectAnswer(option)}
+                    disabled={selectedAnswer !== null}
+                    className={cn(
+                      'w-full py-4 rounded-xl font-bold text-lg transition-all',
+                      selectedAnswer === null
+                        ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        : selectedAnswer === option
+                          ? isCorrect
+                            ? 'bg-green-500 text-white'
+                            : 'bg-red-500 text-white'
+                          : isCorrect
+                            ? 'bg-gray-200 text-gray-500'
+                            : selectedAnswer === option
+                              ? 'bg-red-500 text-white'
+                              : 'bg-gray-200 text-gray-500'
+                    )}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+
+              {selectedAnswer !== null && (
+                <button
+                  onClick={goToNext}
+                  className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors mt-4"
+                >
+                  {isCorrect ? '🎉 正确！继续 →' : '❌ 错误，继续 →'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {questionType === 'listening' && (
+            <div className="text-center">
+              <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-8 mb-6">
+                <SpeechButton word={currentWord?.word || ''} className="mb-4" />
+                <p className="text-gray-500">点击喇叭听发音</p>
+              </div>
+
+              <div className="space-y-3">
+                {shuffleArray([currentWord?.meaning, ...options]).map((option, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectAnswer(option)}
+                    disabled={selectedAnswer !== null}
+                    className={cn(
+                      'w-full py-4 rounded-xl font-bold text-lg transition-all',
+                      selectedAnswer === null
+                        ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        : selectedAnswer === option
+                          ? isCorrect
+                            ? 'bg-green-500 text-white'
+                            : 'bg-red-500 text-white'
+                          : isCorrect
+                            ? 'bg-gray-200 text-gray-500'
+                            : 'bg-gray-200 text-gray-500'
+                    )}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+
+              {selectedAnswer !== null && (
+                <div className="mt-4">
+                  <p className="text-gray-600 mb-2">
+                    正确答案：<span className="font-bold text-green-600">{currentWord?.meaning}</span>
+                  </p>
+                  <button
+                    onClick={goToNext}
+                    className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors"
+                  >
+                    {isCorrect ? '🎉 正确！继续 →' : '❌ 错误，继续 →'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {questionType === 'spelling' && (
+            <div className="text-center">
+              <div className="bg-gradient-to-br from-orange-100 to-amber-100 rounded-2xl p-8 mb-6">
+                <p className="text-gray-500 mb-2">根据释义拼写单词</p>
+                <p className="text-2xl font-bold text-gray-800 mb-2">{currentWord?.meaning}</p>
+                <SpeechButton word={currentWord?.word || ''} className="mb-2" />
+                {showSpellingHint && (
+                  <div className="mt-2">
+                    <p className="text-gray-500 text-sm">提示：{currentWord?.word.substring(0, session.spellingHintLevel + 1)}...</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={session.spellingInput}
+                  onChange={(e) => setSession(prev => prev ? { ...prev, spellingInput: e.target.value } : null)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSpellingSubmit();
+                    }
+                  }}
+                  disabled={isCorrect !== null}
+                  placeholder="输入单词..."
+                  className={cn(
+                    'w-full px-4 py-4 text-2xl text-center font-bold rounded-xl border-2 transition-all',
+                    isCorrect === null
+                      ? 'border-gray-300 focus:border-primary-500 focus:outline-none'
+                      : isCorrect
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-red-500 bg-red-50'
+                  )}
+                  autoFocus
+                />
+              </div>
+
+              {isCorrect === null && (
+                <div className="flex gap-3 mb-4">
+                  <button
+                    onClick={() => {
+                      if (session.spellingHintLevel < currentWord?.word.length! - 1) {
+                        setSession(prev => prev ? { ...prev, showSpellingHint: true, spellingHintLevel: prev.spellingHintLevel + 1 } : null);
+                      }
+                    }}
+                    disabled={session.spellingHintLevel >= currentWord?.word.length! - 1}
+                    className={cn(
+                      'flex-1 py-3 rounded-xl font-bold transition-colors',
+                      session.spellingHintLevel >= currentWord?.word.length! - 1
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                    )}
+                  >
+                    💡 提示 ({session.spellingHintLevel + 1})
+                  </button>
+                  <button
+                    onClick={handleSpellingSubmit}
+                    disabled={!session.spellingInput.trim()}
+                    className={cn(
+                      'flex-1 py-3 rounded-xl font-bold transition-colors',
+                      session.spellingInput.trim()
+                        ? 'bg-primary-500 text-white hover:bg-primary-600'
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    )}
+                  >
+                    提交答案
+                  </button>
+                </div>
+              )}
+
+              {isCorrect !== null && (
+                <div>
+                  <p className={cn('text-xl font-bold mb-2', isCorrect ? 'text-green-600' : 'text-red-600')}>
+                    {isCorrect ? '🎉 正确！' : `❌ 错误！正确答案：${currentWord?.word}`}
+                  </p>
+                  <button
+                    onClick={goToNext}
+                    className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors"
+                  >
+                    继续 →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

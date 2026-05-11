@@ -809,7 +809,7 @@ export function PetPage() {
                     onClick={() => setShowAccessorySelector(true)}
                     className="text-xs text-purple-600 hover:text-purple-700"
                   >
-                    {userData.userDecorations.ownedAccessories.length > 0 ? '更多' : '去商店 +'}
+                    更换
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -851,7 +851,7 @@ export function PetPage() {
                     onClick={() => setShowBackgroundSelector(true)}
                     className="text-xs text-purple-600 hover:text-purple-700"
                   >
-                    {userData.userDecorations.ownedBackgrounds.length > 0 ? '更多' : '去商店 +'}
+                    更换
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
