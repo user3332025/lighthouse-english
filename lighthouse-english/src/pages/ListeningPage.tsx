@@ -49,7 +49,7 @@ const perfectMessages = [
 
 export function ListeningPage() {
   const navigate = useNavigate();
-  const { addPoints, userData } = useUserData();
+  const { addPoints, addWrongQuestion, userData } = useUserData();
 
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
@@ -157,6 +157,20 @@ export function ListeningPage() {
           }
         }, 300);
       } else {
+        [first, second].forEach((card) => {
+          addWrongQuestion({
+            id: `vocab-match-${card.word.word}`,
+            type: 'matching',
+            question: {
+              id: `vocab-match-${card.word.word}`,
+              type: 'matching',
+              question: `词汇配对：${card.word.word}`,
+              word: card.word.word,
+              correctAnswer: card.word.meaning,
+              image: card.word.image,
+            },
+          });
+        });
         setTimeout(() => {
           setCards(prev =>
             prev.map(card =>

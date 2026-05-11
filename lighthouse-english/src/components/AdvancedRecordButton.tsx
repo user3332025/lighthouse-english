@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Pause, Play, StopCircle, ArrowRight, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { cn, calculateSimilarity } from '@/lib/utils';
 import { unlockAudioFromButtonTap } from '@/lib/gameSfx';
-import { requestMicPermission, getMicrophoneStream } from '@/lib/AudioRecorder';
+import { getMicrophoneStream } from '@/lib/AudioRecorder';
 
 export type EncouragementTier = 'excellent' | 'well' | 'good' | 'retry';
 
@@ -321,14 +321,8 @@ export function AdvancedRecordButton({
       return;
     }
 
-    const hasPermission = await requestMicPermission();
-    if (!hasPermission) {
-      setIsRecording(false);
-      setIsProcessing(false);
-      setFeedback('请允许麦克风权限以使用录音功能');
-      setShowResult(true);
-      return;
-    }
+    // 在用户手势栈内立刻发起 getUserMedia（其后不要有 await），合并重复请求，避免每次点击都再走一遍权限提示
+    const micPromise = getMicrophoneStream({ audio: true });
 
     stopRequestedRef.current = false;
     unlockAudioFromButtonTap();
@@ -343,6 +337,16 @@ export function AdvancedRecordButton({
     } catch { /* ignore */ }
     clearRecordingTimer();
     clearMaxDurationTimer();
+
+    let micStream: MediaStream;
+    try {
+      micStream = await micPromise;
+    } catch (err) {
+      console.error('麦克风权限请求失败：', err);
+      setFeedback('请允许麦克风权限以使用录音功能');
+      setShowResult(true);
+      return;
+    }
 
     latestTranscriptRef.current = '';
     setIsRecording(true);
@@ -371,8 +375,7 @@ export function AdvancedRecordButton({
 
     try {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const stream = await getMicrophoneStream({ audio: true });
-      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const source = audioContextRef.current.createMediaStreamSource(micStream);
       source.connect(analyserRef.current);
       dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
       animationFrameRef.current = requestAnimationFrame(analyzeAudioLevel);

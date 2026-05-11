@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { useUserData } from '@/hooks/useUserData';
 import { PET_ITEMS, findItemById } from '@/data/petItems';
+import { SHOP_PETS } from '@/data/shopPets';
 import { cn } from '@/lib/utils';
-import { Item } from '@/types';
+import { Item, PetType } from '@/types';
 
-type TabType = 'food' | 'toy' | 'accessory' | 'background';
+type TabType = 'food' | 'toy' | 'accessory' | 'background' | 'pet';
 type FoodCategory = 'all' | 'snack' | 'fruit' | 'meal';
 type ToyCategory = 'all' | 'ball' | 'plush' | 'game';
 type AccessoryCategory = 'all' | 'crown' | 'hat' | 'glasses' | 'bow';
@@ -14,7 +15,7 @@ type BackgroundCategory = 'all' | 'nature' | 'space' | 'fantasy';
 
 export function ShopPage() {
   const navigate = useNavigate();
-  const { userData, purchaseItem, getItemCount, getActivePet, ownsItem } = useUserData();
+  const { userData, purchaseItem, purchasePetFromShop, getItemCount, getActivePet, ownsItem, hasAdoptedPetType } = useUserData();
   const [activeTab, setActiveTab] = useState<TabType>('food');
   const [activeFoodCategory, setActiveFoodCategory] = useState<FoodCategory>('all');
   const [activeToyCategory, setActiveToyCategory] = useState<ToyCategory>('all');
@@ -72,6 +73,21 @@ export function ShopPage() {
     }
   };
 
+  /** 商店购买新宠物（积分兑换，不占免费领养名额） */
+  const handlePurchasePet = (type: PetType, cost: number, emoji: string, name: string) => {
+    if (userData.points < cost) return;
+    if (hasAdoptedPetType(type)) {
+      setPurchaseSuccess(`${emoji} ${name} 已经在你的小窝里啦`);
+      setTimeout(() => setPurchaseSuccess(null), 2500);
+      return;
+    }
+    const pet = purchasePetFromShop(type, cost);
+    if (pet) {
+      setPurchaseSuccess(`${emoji} ${name} 来到你的小窝啦！快去培养吧～`);
+      setTimeout(() => setPurchaseSuccess(null), 2500);
+    }
+  };
+
   const handleDirectUse = (item: Item) => {
     if (!activePet) {
       alert('请先领养一只宠物！');
@@ -121,7 +137,7 @@ export function ShopPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
           <button
             onClick={() => setActiveTab('food')}
             className={cn(
@@ -165,6 +181,17 @@ export function ShopPage() {
             )}
           >
             🌸 背景
+          </button>
+          <button
+            onClick={() => setActiveTab('pet')}
+            className={cn(
+              'py-3 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-1',
+              activeTab === 'pet'
+                ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white scale-105'
+                : 'bg-white text-gray-600 hover:scale-105'
+            )}
+          >
+            🐾 小伙伴
           </button>
         </div>
 
@@ -244,6 +271,55 @@ export function ShopPage() {
           </div>
         )}
 
+        {activeTab === 'pet' && (
+          <p className="text-sm text-gray-600 mb-4 bg-white/80 rounded-xl px-4 py-3 border border-rose-100">
+            前 3 只可在宠物小窝<strong className="text-rose-600">免费领养</strong>
+            ；这里可用积分迎接更多伙伴，每只独立升级，可在小窝切换培养。
+          </p>
+        )}
+
+        {activeTab === 'pet' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {SHOP_PETS.map((offer) => {
+              const isAdopted = hasAdoptedPetType(offer.type);
+              const canAfford = userData.points >= offer.cost;
+              const canPurchase = canAfford && !isAdopted;
+              return (
+                <div
+                  key={offer.type}
+                  className={cn(
+                    'relative bg-white rounded-2xl p-4 text-center shadow-lg transition-all',
+                    canPurchase && 'hover:scale-105 hover:shadow-xl'
+                  )}
+                >
+                  <div className="text-6xl mb-3">{offer.emoji}</div>
+                  <h3 className="font-bold text-gray-800 text-sm mb-1">{offer.name}</h3>
+                  <p className="text-xs text-gray-500 mb-3 min-h-[2.5rem]">{offer.description}</p>
+                  <button
+                    type="button"
+                    onClick={() => handlePurchasePet(offer.type, offer.cost, offer.emoji, offer.name)}
+                    disabled={!canPurchase}
+                    className={cn(
+                      'w-full py-2 rounded-full font-bold text-sm transition-all',
+                      canPurchase
+                        ? 'bg-gradient-to-r from-rose-400 to-amber-400 text-white hover:opacity-90 active:scale-95'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    )}
+                  >
+                    {isAdopted ? '已领养' : canAfford ? `${offer.cost} 积分带回家` : `需要 ${offer.cost} 积分`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/pet')}
+                    className="w-full mt-2 py-2 rounded-full font-medium text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    前往小窝
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {currentItems.map(item => {
             // 对于装饰和背景，使用ownsItem检查；对于食物和玩具，使用getItemCount
@@ -388,6 +464,7 @@ export function ShopPage() {
             );
           })}
         </div>
+        )}
 
         <div className="mt-6 grid grid-cols-2 gap-4">
           <button

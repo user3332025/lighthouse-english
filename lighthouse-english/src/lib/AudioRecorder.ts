@@ -57,6 +57,14 @@ export async function getMicrophoneStream(constraints: MediaStreamConstraints = 
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(MIC_PERMISSION_STORAGE_KEY, 'true');
         }
+        // 用户或系统在别处关闭麦克风时清空缓存，避免拿着已结束的流重复报错
+        const onTrackEnded = () => {
+          if (cachedStream !== stream) return;
+          if (!stream.getTracks().some((t) => t.readyState === 'live')) {
+            cachedStream = null;
+          }
+        };
+        stream.getTracks().forEach((track) => track.addEventListener('ended', onTrackEnded));
         return stream;
       })
       .finally(() => {
@@ -68,8 +76,7 @@ export async function getMicrophoneStream(constraints: MediaStreamConstraints = 
 }
 
 export async function requestMicPermission(): Promise<boolean> {
-  if (micPermissionGranted) return true;
-
+  // 不再仅凭 localStorage 跳过：始终走 getMicrophoneStream，内部对已存活缓存会直接返回，不会重复弹窗
   try {
     await getMicrophoneStream({ audio: true });
     return true;
@@ -276,11 +283,28 @@ export class AudioRecorder {
 
   async start(): Promise<void> {
     try {
-      const hasPermission = await requestMicPermission();
-      if (!hasPermission) {
+      const constraints: MediaStreamConstraints = {
+        audio: {
+          sampleRate: this.config.sampleRate,
+          channelCount: this.config.channelCount,
+          echoCancellation: this.config.echoCancellation,
+          noiseSuppression: this.config.noiseSuppression,
+          autoGainControl: true,
+        },
+      };
+
+      let stream: MediaStream;
+      try {
+        stream = await getMicrophoneStream(constraints);
+      } catch {
+        micPermissionGranted = false;
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(MIC_PERMISSION_STORAGE_KEY);
+        }
         this.state = 'error';
         this.onStateChange?.('error');
         this.onError?.('麦克风权限被拒绝');
+        alert('麦克风权限被拒绝，请在浏览器设置里允许麦克风权限，否则无法录音。');
         return;
       }
 
@@ -297,22 +321,9 @@ export class AudioRecorder {
         issues: []
       };
 
-      if (!cachedStream) {
-        const constraints: MediaStreamConstraints = {
-          audio: {
-            sampleRate: this.config.sampleRate,
-            channelCount: this.config.channelCount,
-            echoCancellation: this.config.echoCancellation,
-            noiseSuppression: this.config.noiseSuppression,
-            autoGainControl: true,
-          }
-        };
+      this.stream = stream;
 
-        cachedStream = await getMicrophoneStream(constraints);
-      }
-      this.stream = cachedStream;
-
-      await this.initAudioContext(cachedStream);
+      await this.initAudioContext(stream);
 
       const options: MediaRecorderOptions = {};
       const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/wav'];
@@ -323,7 +334,7 @@ export class AudioRecorder {
         }
       }
 
-      this.mediaRecorder = new MediaRecorder(cachedStream, options);
+      this.mediaRecorder = new MediaRecorder(stream, options);
       this.audioChunks = [];
 
       this.mediaRecorder.ondataavailable = (event) => {

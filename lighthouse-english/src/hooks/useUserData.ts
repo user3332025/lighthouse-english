@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Pet, PetType, PetLevel, WrongQuestion, WrongQuestionInput, UserData, PetHome, WordLearningRecord, MarkedWord, REVIEW_INTERVALS, UserDecorations } from '@/types';
+import { Pet, PetType, PetAcquisition, PetLevel, WrongQuestion, WrongQuestionInput, UserData, PetHome, WordLearningRecord, MarkedWord, REVIEW_INTERVALS, UserDecorations } from '@/types';
 import { findItemById, PET_EMOJIS } from '@/data/petItems';
 
 const STORAGE_KEY = 'lighthouse_english_data_v2';
+
+/** 可免费领养的宠物数量上限 */
+export const FREE_PET_ADOPTION_LIMIT = 3;
 
 export const PET_LEVELS: PetLevel[] = [
   { level: 1, name: '幼崽', minExp: 0, appearance: '🐣' },
@@ -95,10 +98,11 @@ function generateId(): string {
 }
 
 // 创建新宠物
-function createPet(type: PetType, name?: string): Pet {
+function createPet(type: PetType, name?: string, acquisition: PetAcquisition = 'free'): Pet {
   return {
     id: generateId(),
     type,
+    acquisition,
     name: name || PET_NAMES[type],
     level: 1,
     exp: 0,
@@ -121,6 +125,7 @@ function createTestPet(type: PetType, level: number, name?: string): Pet {
   return {
     id: generateId(),
     type,
+    acquisition: 'purchased',
     name: name || PET_NAMES[type],
     level: levelConfig.level,
     exp: expForLevel(levelConfig.level),
@@ -210,6 +215,26 @@ export function useUserData() {
               return true;
             });
         }
+
+        // 宠物数据迁移：补齐 acquisition、修正 activePetId、同步学习页 adoptedPet
+        if (!migratedData.petHome) {
+          migratedData.petHome = { pets: [], activePetId: null };
+        }
+        migratedData.petHome.pets = (migratedData.petHome.pets || []).map((p: Pet) => ({
+          ...p,
+          acquisition: (p.acquisition ?? 'free') as PetAcquisition,
+        }));
+        const petsArr: Pet[] = migratedData.petHome.pets;
+        const activeId = migratedData.petHome.activePetId;
+        if (activeId && !petsArr.some((p) => p.id === activeId)) {
+          migratedData.petHome.activePetId = petsArr[0]?.id ?? null;
+        } else if (!activeId && petsArr.length > 0) {
+          migratedData.petHome.activePetId = petsArr[0].id;
+        }
+        const curActive = petsArr.find((p) => p.id === migratedData.petHome.activePetId);
+        if (curActive) {
+          migratedData.adoptedPet = curActive.type;
+        }
         
         setUserData(migratedData);
       } catch (e) {
@@ -266,15 +291,23 @@ export function useUserData() {
     });
   }, [userData.wordLearningRecords]);
 
-  const addWrongQuestion = useCallback((question: WrongQuestion) => {
+  const addWrongQuestion = useCallback((question: WrongQuestionInput) => {
     setUserData(prev => {
+      const wrongQuestion = question as WrongQuestionInput & Partial<WrongQuestion>;
+      const incomingWrongCount = Math.max(1, wrongQuestion.wrongCount ?? 1);
+      const incomingCorrectCount = Math.max(0, wrongQuestion.correctCount ?? 0);
       const existing = prev.wrongQuestions.find(
         q => q.id === question.id
       );
       if (existing) {
         const updated = prev.wrongQuestions.map(q =>
           q.id === question.id
-            ? { ...q, wrongCount: q.wrongCount + 1, lastAttempt: Date.now() }
+            ? {
+                ...q,
+                wrongCount: q.wrongCount + incomingWrongCount,
+                correctCount: q.correctCount + incomingCorrectCount,
+                lastAttempt: Date.now(),
+              }
             : q
         );
         const newData = { ...prev, wrongQuestions: updated };
@@ -283,7 +316,15 @@ export function useUserData() {
       }
       const newData = {
         ...prev,
-        wrongQuestions: [...prev.wrongQuestions, { ...question, wrongCount: 1, lastAttempt: Date.now() }],
+        wrongQuestions: [
+          ...prev.wrongQuestions,
+          {
+            ...question,
+            wrongCount: incomingWrongCount,
+            correctCount: incomingCorrectCount,
+            lastAttempt: wrongQuestion.lastAttempt ?? Date.now(),
+          },
+        ],
       };
       saveData(newData);
       return newData;
@@ -470,13 +511,25 @@ export function useUserData() {
     });
   }, [userData.markedWords]);
 
-  // 领养宠物
-  const adoptPet = useCallback((type: PetType, name?: string) => {
-    const newPet = createPet(type, name);
+  // 剩余免费领养名额
+  const getRemainingFreeAdoptionSlots = useCallback((): number => {
+    const used = userData.petHome.pets.filter(p => (p.acquisition ?? 'free') === 'free').length;
+    return Math.max(0, FREE_PET_ADOPTION_LIMIT - used);
+  }, [userData.petHome.pets]);
+
+  // 领养宠物（占用免费名额，最多 FREE_PET_ADOPTION_LIMIT 只）
+  const adoptPet = useCallback((type: PetType, name?: string): Pet | null => {
+    let newPetResult: Pet | null = null;
     setUserData(prev => {
+      if (prev.petHome.pets.some(p => p.type === type)) return prev;
+      const freeCount = prev.petHome.pets.filter(p => (p.acquisition ?? 'free') === 'free').length;
+      if (freeCount >= FREE_PET_ADOPTION_LIMIT) return prev;
+      const newPet = createPet(type, name, 'free');
+      newPetResult = newPet;
       const newPets = [...prev.petHome.pets, newPet];
-      const newData = {
+      const newData: UserData = {
         ...prev,
+        adoptedPet: type,
         petHome: {
           pets: newPets,
           activePetId: newPet.id,
@@ -485,16 +538,44 @@ export function useUserData() {
       saveData(newData);
       return newData;
     });
-    return newPet;
+    return newPetResult;
   }, [saveData]);
 
-  // 领养测试用宠物（可指定任意等级，测试阶段专用）
+  // 商店积分购买宠物（不占免费名额）
+  const purchasePetFromShop = useCallback((type: PetType, cost: number): Pet | null => {
+    let created: Pet | null = null;
+    setUserData(prev => {
+      if (prev.points < cost) return prev;
+      if (prev.petHome.pets.some(p => p.type === type)) return prev;
+      const newPet = createPet(type, undefined, 'purchased');
+      created = newPet;
+      const newData: UserData = {
+        ...prev,
+        points: prev.points - cost,
+        adoptedPet: type,
+        petHome: {
+          pets: [...prev.petHome.pets, newPet],
+          activePetId: newPet.id,
+        },
+      };
+      saveData(newData);
+      return newData;
+    });
+    return created;
+  }, [saveData]);
+
+  const hasAdoptedPetType = useCallback((type: PetType): boolean => {
+    return userData.petHome.pets.some(p => p.type === type);
+  }, [userData.petHome.pets]);
+
+  // 领养测试用宠物（可指定任意等级，测试阶段专用；不占免费名额）
   const adoptTestPet = useCallback((type: PetType, level: number = 1, name?: string) => {
     const newPet = createTestPet(type, level, name);
     setUserData(prev => {
       const newPets = [...prev.petHome.pets, newPet];
-      const newData = {
+      const newData: UserData = {
         ...prev,
+        adoptedPet: type,
         petHome: {
           pets: newPets,
           activePetId: newPet.id,
@@ -509,9 +590,11 @@ export function useUserData() {
   // 切换当前宠物
   const setActivePet = useCallback((petId: string) => {
     setUserData(prev => {
-      if (!prev.petHome.pets.find(p => p.id === petId)) return prev;
-      const newData = {
+      const pet = prev.petHome.pets.find(p => p.id === petId);
+      if (!pet) return prev;
+      const newData: UserData = {
         ...prev,
+        adoptedPet: pet.type,
         petHome: {
           ...prev.petHome,
           activePetId: petId,
@@ -711,8 +794,10 @@ export function useUserData() {
       if (newActiveId === petId) {
         newActiveId = newPets.length > 0 ? newPets[0].id : null;
       }
-      const newData = {
+      const activePetObj = newActiveId ? newPets.find(p => p.id === newActiveId) : undefined;
+      const newData: UserData = {
         ...prev,
+        adoptedPet: activePetObj?.type,
         petHome: {
           pets: newPets,
           activePetId: newActiveId,
@@ -830,6 +915,9 @@ export function useUserData() {
     isWordMarked,
     adoptPet,
     adoptTestPet,
+    purchasePetFromShop,
+    hasAdoptedPetType,
+    getRemainingFreeAdoptionSlots,
     setActivePet,
     getActivePet,
     updatePet,

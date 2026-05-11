@@ -153,7 +153,8 @@ function WordListView({
     removeMarkedWord, 
     isWordMarked, 
     markWordLearned, 
-    unmarkWordLearned 
+    unmarkWordLearned,
+    addWrongQuestion,
   } = useUserData();
 
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -326,6 +327,20 @@ function WordListView({
       
       if (result.similarity && (result.similarity >= 80) && !learnedWords.includes(currentWord.word)) {
         markAsLearned(currentWord.word);
+      }
+      if (result.similarity && result.similarity < 70) {
+        addWrongQuestion({
+          id: `pronunciation-${textbookId}-${unit.id}-${currentWord.word}`,
+          type: 'phonetic',
+          question: {
+            id: `pronunciation-${textbookId}-${unit.id}-${currentWord.word}`,
+            type: 'phonetic',
+            question: `跟读单词：${currentWord.meaning}`,
+            word: currentWord.word,
+            correctAnswer: currentWord.word,
+            image: currentWord.image,
+          },
+        });
       }
 
     } catch (error) {

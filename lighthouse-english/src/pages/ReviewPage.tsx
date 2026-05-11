@@ -5,7 +5,7 @@ import { SpeechButton } from '@/components/SpeechButton';
 import { useUserData } from '@/hooks/useUserData';
 import { cn, shuffleArray } from '@/lib/utils';
 import { GRADE_3A, GRADE_3B } from '@/data/wordLearning';
-import type { QuestionData, WordLearningRecord } from '@/types';
+import type { QuestionData, WordLearningRecord, WrongQuestionInput } from '@/types';
 
 type ReviewMode = 'home' | 'smart' | 'wrong' | 'marked' | 'all' | 'quick';
 type QuestionType = 'flashcard' | 'select' | 'listening' | 'spelling';
@@ -207,6 +207,52 @@ export function ReviewPage() {
 
   const currentWord = session?.words[session.currentIndex];
 
+  const getWrongQuestionType = (questionType: QuestionType): WrongQuestionInput['type'] => {
+    if (questionType === 'listening') return 'listening';
+    if (questionType === 'spelling') return 'phonetic';
+    return 'matching';
+  };
+
+  const buildWrongQuestionFromWord = (
+    word: ReviewWord,
+    questionType: QuestionType = session?.questionType ?? 'select'
+  ): WrongQuestionInput => {
+    const wrongType = getWrongQuestionType(questionType);
+    return {
+      id: `review-${wrongType}-${word.textbookId}-${word.unitId}-${word.word}`,
+      type: wrongType,
+      question: {
+        id: `review-${wrongType}-${word.textbookId}-${word.unitId}-${word.word}`,
+        type: wrongType,
+        question: wrongType === 'phonetic' ? `拼写单词：${word.meaning}` : word.word,
+        word: word.word,
+        correctAnswer: wrongType === 'phonetic' ? word.word : word.meaning,
+        image: word.image,
+      },
+    };
+  };
+
+  const addWordToWrongBook = (word: ReviewWord, questionType?: QuestionType) => {
+    addWrongQuestion(buildWrongQuestionFromWord(word, questionType));
+  };
+
+  const pendingWrongRecordWords = useMemo(() => {
+    return learnedWords.filter(word => {
+      const wrongCount = word.record?.wrongCount ?? 0;
+      if (wrongCount <= 0) return false;
+      return !wrongQuestions.some(wq => wq.question.word === word.word);
+    });
+  }, [learnedWords, wrongQuestions]);
+
+  const addPendingWrongRecords = () => {
+    pendingWrongRecordWords.forEach(word => {
+      addWrongQuestion({
+        ...buildWrongQuestionFromWord(word, 'select'),
+        wrongCount: Math.max(1, word.record?.wrongCount ?? 1),
+      } as WrongQuestionInput & { wrongCount: number });
+    });
+  };
+
   const options = useMemo(() => {
     const cw = session?.words[session?.currentIndex ?? -1];
     if (!cw) return [];
@@ -372,6 +418,9 @@ export function ReviewPage() {
     if (currentWord.record) {
       recordWordReview(currentWord.word, isCorrect, currentWord.textbookId, currentWord.unitId);
     }
+    if (!isCorrect && reviewMode !== 'wrong') {
+      addWordToWrongBook(currentWord, 'flashcard');
+    }
 
     goToNext();
   };
@@ -430,17 +479,7 @@ export function ReviewPage() {
         recordWordReview(currentWord.word, false, currentWord.textbookId, currentWord.unitId);
       }
       if (reviewMode !== 'wrong') {
-        addWrongQuestion({
-          id: `word_${currentWord.word}_${Date.now()}`,
-          type: session.questionType === 'listening' ? 'listening' : 'matching',
-          question: {
-            id: `word_${currentWord.word}`,
-            word: currentWord.word,
-            correctAnswer: currentWord.meaning,
-            image: currentWord.image,
-            type: session.questionType === 'listening' ? 'listening' : 'matching',
-          },
-        });
+        addWordToWrongBook(currentWord, session.questionType);
       }
     }
   };
@@ -482,6 +521,9 @@ export function ReviewPage() {
     } else {
       if (currentWord.record) {
         recordWordReview(currentWord.word, false, currentWord.textbookId, currentWord.unitId);
+      }
+      if (reviewMode !== 'wrong') {
+        addWordToWrongBook(currentWord, 'spelling');
       }
     }
   };
@@ -844,7 +886,14 @@ export function ReviewPage() {
                   <p className="text-sm text-white/80">需要加强</p>
                 </div>
               </div>
-              <div className="text-3xl font-bold">{wrongQuestions.length}</div>
+              <div className="flex items-end justify-between gap-2">
+                <div className="text-3xl font-bold">{wrongQuestions.length}</div>
+                {pendingWrongRecordWords.length > 0 && (
+                  <div className="text-xs bg-white/20 rounded-full px-2 py-1">
+                    可补充 {pendingWrongRecordWords.length}
+                  </div>
+                )}
+              </div>
             </button>
 
             <button
@@ -1060,13 +1109,37 @@ export function ReviewPage() {
 
                 {wrongQuestions.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 flex-1 flex flex-col items-center justify-center">
-                    <div className="text-6xl mb-3">🎉</div>
-                    <p className="text-lg">太棒了！没有错题</p>
-                    <p className="text-sm text-gray-400 mt-2">继续保持！</p>
+                    <div className="text-6xl mb-3">
+                      {pendingWrongRecordWords.length > 0 ? '📝' : '🎉'}
+                    </div>
+                    <p className="text-lg">
+                      {pendingWrongRecordWords.length > 0 ? '发现做错过的题目' : '太棒了！没有错题'}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      {pendingWrongRecordWords.length > 0
+                        ? `可以补充 ${pendingWrongRecordWords.length} 道到错题本，后面集中练习。`
+                        : '继续保持！'}
+                    </p>
+                    {pendingWrongRecordWords.length > 0 && (
+                      <button
+                        onClick={addPendingWrongRecords}
+                        className="mt-4 px-5 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600"
+                      >
+                        添加做错的题目
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <>
                     <div className="flex gap-2 mb-4">
+                      {pendingWrongRecordWords.length > 0 && (
+                        <button
+                          onClick={addPendingWrongRecords}
+                          className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+                        >
+                          添加遗漏错题
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           wrongQuestions.forEach(wq => {
@@ -1107,7 +1180,7 @@ export function ReviewPage() {
                               </div>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-gray-400 text-xs">
-                                  答错 {(wq.wrongCount || 0) + 1} 次
+                                  答错 {wq.wrongCount || 1} 次
                                 </span>
                                 {wq.question.type === 'listening' && (
                                   <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-xs">

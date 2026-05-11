@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { resumeAudioContext } from '@/lib/gameSfx';
 import { unlockSpeechFromUserGesture } from '@/lib/speechUnlock';
-import { requestMicPermission } from '@/lib/AudioRecorder';
 import { HomePage } from '@/pages/HomePage';
 import { WordLearningPage } from '@/pages/WordLearningPage';
 import { SentencePage } from '@/pages/SentencePage';
@@ -17,12 +16,10 @@ import { ShopPage } from '@/pages/ShopPage';
 import { KidsPronunciationPractice } from '@/pages/KidsPronunciationPractice';
 import { MarkedWordsPage } from '@/pages/MarkedWordsPage';
 
-/** 首次触摸/按键后解锁 AudioContext，并让 speechSynthesis 脱离挂起态（部分浏览器默认 suspended） */
+/** 首次触摸/按键后解锁 AudioContext，并让 speechSynthesis 脱离挂起态（部分浏览器默认 suspended）。麦克风仅在用户点击录音时请求，避免每次点击页面都触发权限流程。 */
 function GlobalAudioUnlock() {
-  const permissionRequested = useRef(false);
-
   useEffect(() => {
-    const unlock = async () => {
+    const unlock = () => {
       unlockSpeechFromUserGesture();
       resumeAudioContext();
       try {
@@ -33,14 +30,6 @@ function GlobalAudioUnlock() {
         }
       } catch {
         /* ignore */
-      }
-
-      if (!permissionRequested.current) {
-        permissionRequested.current = true;
-        const granted = await requestMicPermission().catch(() => false);
-        if (!granted) {
-          permissionRequested.current = false;
-        }
       }
     };
     window.addEventListener('pointerdown', unlock, { passive: true });

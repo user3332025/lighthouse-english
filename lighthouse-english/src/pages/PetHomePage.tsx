@@ -19,6 +19,7 @@ export function PetHomePage() {
   const {
     userData,
     adoptPet,
+    hasAdoptedPetType,
     setActivePet,
     feedPet,
     playWithPet,
@@ -50,7 +51,15 @@ export function PetHomePage() {
   };
 
   const handleAdopt = (type: PetType) => {
-    adoptPet(type);
+    const created = adoptPet(type);
+    if (!created) {
+      alert(
+        hasAdoptedPetType(type)
+          ? '这只小动物已经领养过啦，每一种动物只能领养一次。'
+          : '免费领养名额已满（3 只），请到兑换商店「小伙伴」分类用积分购买！'
+      );
+      return;
+    }
     setShowAdoptModal(false);
     setActionFeedback('🎉 恭喜领养新伙伴！');
     setTimeout(() => setActionFeedback(null), 2000);
@@ -299,16 +308,24 @@ export function PetHomePage() {
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <h3 className="text-2xl font-bold text-center mb-4">选择你的新伙伴</h3>
             <div className="grid grid-cols-2 gap-3">
-              {PET_TYPES.map(pet => (
-                <button
-                  key={pet.type}
-                  onClick={() => handleAdopt(pet.type)}
-                  className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-4 text-center hover:scale-105 transition-transform"
-                >
-                  <div className="text-6xl mb-2">{pet.emoji}</div>
-                  <div className="font-bold text-gray-800">{pet.name}</div>
-                </button>
-              ))}
+              {PET_TYPES.map(pet => {
+                const isAdopted = hasAdoptedPetType(pet.type);
+                return (
+                  <button
+                    key={pet.type}
+                    disabled={isAdopted}
+                    onClick={() => handleAdopt(pet.type)}
+                    className={cn(
+                      'bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-4 text-center transition-transform',
+                      isAdopted ? 'opacity-60 cursor-not-allowed' : 'hover:scale-105'
+                    )}
+                  >
+                    <div className="text-6xl mb-2">{pet.emoji}</div>
+                    <div className="font-bold text-gray-800">{pet.name}</div>
+                    {isAdopted && <div className="mt-1 text-xs font-medium text-gray-500">已领养</div>}
+                  </button>
+                );
+              })}
             </div>
             <button
               onClick={() => setShowAdoptModal(false)}

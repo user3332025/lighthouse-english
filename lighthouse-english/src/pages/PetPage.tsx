@@ -5,7 +5,7 @@ import { Header } from '@/components/Header';
 import { PetModal } from '@/components/PetModal';
 import { PetIcon } from '@/components/PetIcon';
 import { CSSPetIcon } from '@/components/CSSPetIcon';
-import { useUserData, PET_FACES, PET_LEVELS, PET_NAMES, PET_LEVEL_EMOJIS } from '@/hooks/useUserData';
+import { useUserData, PET_FACES, PET_LEVELS, PET_NAMES, PET_LEVEL_EMOJIS, FREE_PET_ADOPTION_LIMIT } from '@/hooks/useUserData';
 import { cn } from '@/lib/utils';
 import { PetType, Pet, Item } from '@/types';
 import { PET_ITEMS, findItemById, PET_EMOJIS } from '@/data/petItems';
@@ -56,6 +56,9 @@ export function PetPage() {
     userData,
     adoptPet,
     adoptTestPet,
+    hasAdoptedPetType,
+    setActivePet,
+    getRemainingFreeAdoptionSlots,
     feedPet,
     playWithPet,
     getActivePet,
@@ -79,6 +82,7 @@ export function PetPage() {
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const [testPetLevel, setTestPetLevel] = useState(1);
+  const [showAdoptCompanionModal, setShowAdoptCompanionModal] = useState(false);
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{ newLevel: number; previousLevel: number } | null>(null);
@@ -91,6 +95,12 @@ export function PetPage() {
   const [currentMood, setCurrentMood] = useState<{ emoji: string; text: string } | null>(null);
 
   const activePet = getActivePet();
+
+  // 切换当前展示的宠物时重置互动状态，避免上一只宠物的动画残留在新宠物上
+  useEffect(() => {
+    setPetMood('normal');
+    setCurrentAction(null);
+  }, [activePet?.id]);
 
   // 已拥有的装饰配件列表（用于底部弹窗，仅展示可更换项）
   const ownedAccessoryPickerItems = useMemo(
@@ -125,10 +135,6 @@ export function PetPage() {
       setPetMood('normal');
     }
   }, [activePet]);
-
-  const handleAdopt = (petType: PetType) => {
-    adoptPet(petType);
-  };
 
   const handleFeed = () => {
     if (!activePet) return;
@@ -284,24 +290,54 @@ export function PetPage() {
           <div className="bg-gradient-to-r from-pink-400 via-orange-400 to-yellow-400 rounded-3xl p-8 text-white text-center mb-8 shadow-warm-lg">
             <div className="text-7xl mb-4 animate-bounce">🏠</div>
             <h2 className="text-2xl font-bold mb-2">欢迎来到宠物小窝！</h2>
-            <p className="text-white/90">领养一只可爱的小动物，和它一起快乐成长吧！</p>
+            <p className="text-white/90">
+              前 {FREE_PET_ADOPTION_LIMIT} 只小伙伴可免费领养，之后可在兑换商店「小伙伴」板块用积分带回家继续培养。
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {PETS.map((pet) => (
-              <button
-                key={pet.type}
-                onClick={() => isTestMode ? adoptTestPet(pet.type, testPetLevel) : adoptPet(pet.type)}
-                className="bg-white rounded-2xl p-6 shadow-warm hover:shadow-warm-lg transition-all duration-300 hover:scale-105 hover:-translate-y-1 text-center group"
-              >
-                <div className="text-7xl mb-3 group-hover:animate-bounce">{pet.emoji}</div>
-                <h3 className="font-bold text-lg text-gray-800 mb-1">{pet.name}</h3>
-                <p className="text-sm text-gray-500">{pet.description}</p>
-                <div className="mt-3 bg-gradient-to-r from-orange-400 to-pink-500 text-white text-sm px-4 py-2 rounded-full inline-block opacity-0 group-hover:opacity-100 transition-opacity">
-                  {isTestMode ? `点击领养 Lv${testPetLevel}` : '点击领养'}
-                </div>
-              </button>
-            ))}
+            {PETS.map((pet) => {
+              const isAdopted = hasAdoptedPetType(pet.type);
+              const isDisabled = isAdopted && !isTestMode;
+              return (
+                <button
+                  key={pet.type}
+                  disabled={isDisabled}
+                  onClick={() => {
+                    if (isTestMode) {
+                      adoptTestPet(pet.type, testPetLevel);
+                      return;
+                    }
+                    const created = adoptPet(pet.type);
+                    if (!created) {
+                      alert(
+                        isAdopted
+                          ? '这只小动物已经领养过啦，每一种动物只能领养一次。'
+                          : `免费领养名额已满（${FREE_PET_ADOPTION_LIMIT} 只），请到兑换商店「小伙伴」板块用积分购买新伙伴！`
+                      );
+                    }
+                  }}
+                  className={cn(
+                    'bg-white rounded-2xl p-6 shadow-warm transition-all duration-300 text-center group',
+                    isDisabled
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:shadow-warm-lg hover:scale-105 hover:-translate-y-1'
+                  )}
+                >
+                  <div className="text-7xl mb-3 group-hover:animate-bounce">{pet.emoji}</div>
+                  <h3 className="font-bold text-lg text-gray-800 mb-1">{pet.name}</h3>
+                  <p className="text-sm text-gray-500">{pet.description}</p>
+                  <div className={cn(
+                    'mt-3 text-white text-sm px-4 py-2 rounded-full inline-block transition-opacity',
+                    isDisabled
+                      ? 'bg-gray-400 opacity-100'
+                      : 'bg-gradient-to-r from-orange-400 to-pink-500 opacity-0 group-hover:opacity-100'
+                  )}>
+                    {isDisabled ? '已领养' : isTestMode ? `点击领养 Lv${testPetLevel}` : '点击领养'}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           <div className="mt-4 bg-blue-50 rounded-xl p-4">
@@ -396,6 +432,51 @@ export function PetPage() {
       <Header showBack title={isTestMode ? "🐾 宠物小窝 (测试模式)" : "宠物小窝"} />
 
       <div className="max-w-4xl mx-auto px-4 mt-4">
+        {/* 小伙伴切换：每只宠物有独立的饥饿值、快乐值与等级 */}
+        <div className="bg-white/95 backdrop-blur rounded-2xl p-4 shadow-warm mb-4 border border-orange-100">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <span className="text-sm font-bold text-gray-800">🐾 我的小伙伴</span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">
+              免费名额 {getRemainingFreeAdoptionSlots()}/{FREE_PET_ADOPTION_LIMIT}
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {userData.petHome.pets.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setActivePet(p.id)}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all text-sm font-medium',
+                  activePet?.id === p.id
+                    ? 'border-orange-400 bg-orange-50 text-orange-900 shadow-md'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-orange-200'
+                )}
+              >
+                <span className="text-2xl leading-none">{PET_EMOJIS[p.type]}</span>
+                <span className="max-w-[5rem] truncate">{p.name}</span>
+                <span className="text-xs text-gray-400">Lv{p.level}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center mt-3">
+            <button
+              type="button"
+              onClick={() => setShowAdoptCompanionModal(true)}
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm font-bold shadow hover:opacity-95 transition-opacity"
+            >
+              ➕ 免费领养 / 查看说明
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/shop')}
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-bold shadow hover:opacity-95 transition-opacity"
+            >
+              🛒 商店购买小伙伴
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white rounded-3xl shadow-warm-lg overflow-hidden mb-6">
           <div
             className={cn(
@@ -1254,6 +1335,73 @@ export function PetPage() {
             </div>
           )}
         </div>
+
+        {showAdoptCompanionModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[88vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-center text-gray-800 mb-2">添加小伙伴</h3>
+              <p className="text-center text-sm text-gray-500 mb-4">
+                {getRemainingFreeAdoptionSlots() > 0
+                  ? `还可免费领养 ${getRemainingFreeAdoptionSlots()} 只（累计最多 ${FREE_PET_ADOPTION_LIMIT} 只免费）。每只宠物状态独立，可随时切换培养。`
+                  : '免费名额已用完：请到兑换商店打开「小伙伴」分类，用积分购买后继续喂养与升级。'}
+              </p>
+              {getRemainingFreeAdoptionSlots() > 0 ? (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {PETS.map((pet) => {
+                    const isAdopted = hasAdoptedPetType(pet.type);
+                    return (
+                      <button
+                        key={pet.type}
+                        type="button"
+                        disabled={isAdopted}
+                        onClick={() => {
+                          const created = adoptPet(pet.type);
+                          if (!created) {
+                            alert(
+                              isAdopted
+                                ? '这只小动物已经领养过啦，每一种动物只能领养一次。'
+                                : `免费领养名额已满（${FREE_PET_ADOPTION_LIMIT} 只），请到商店「小伙伴」购买。`
+                            );
+                            return;
+                          }
+                          setShowAdoptCompanionModal(false);
+                        }}
+                        className={cn(
+                          'bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-4 text-center border border-purple-100 transition-transform',
+                          isAdopted
+                            ? 'opacity-60 cursor-not-allowed'
+                            : 'hover:scale-[1.02]'
+                        )}
+                      >
+                        <div className="text-5xl mb-2">{pet.emoji}</div>
+                        <div className="font-bold text-gray-800 text-sm">{pet.name}</div>
+                        {isAdopted && <div className="mt-1 text-xs font-medium text-gray-500">已领养</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdoptCompanionModal(false);
+                    navigate('/shop');
+                  }}
+                  className="w-full mb-4 py-3 rounded-full font-bold bg-gradient-to-r from-orange-400 to-pink-500 text-white shadow-lg"
+                >
+                  前往兑换商店
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowAdoptCompanionModal(false)}
+                className="w-full py-3 rounded-full font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
 
         {showLevelUp && levelUpData && (
           <PetModal

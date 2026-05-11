@@ -4,10 +4,15 @@ export type TextbookSemesterId = 'grade3a' | 'grade3b';
 // 小动物类型
 export type PetType = 'dog' | 'cat' | 'rabbit' | 'bear' | 'fox';
 
+/** 宠物来源：免费领养名额（共 3 只）或商店积分购买 */
+export type PetAcquisition = 'free' | 'purchased';
+
 // 单个宠物数据
 export interface Pet {
   id: string;
   type: PetType;
+  /** 来源；旧数据迁移时默认视为免费领养 */
+  acquisition?: PetAcquisition;
   name: string;
   level: number;
   exp: number;
@@ -195,6 +200,8 @@ export interface MarkedWord {
 
 // 用户数据
 export interface UserData {
+  /** 学习小游戏等界面展示的宠物类型，与当前选中小窝宠物同步 */
+  adoptedPet?: PetType;
   points: number;
   wrongQuestions: WrongQuestion[];
   gameHistory: {
