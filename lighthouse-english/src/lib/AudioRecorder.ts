@@ -1,7 +1,7 @@
 export type RecordingState = 'idle' | 'recording' | 'paused' | 'stopped' | 'error';
 
-let hasAudioPermission: 'granted' | 'denied' | null = null;
-let permissionPromise: Promise<'granted' | 'denied'> | null = null;
+let micPermissionGranted = false;
+let cachedStream: MediaStream | null = null;
 
 export interface Recording {
   id: string;
@@ -31,28 +31,23 @@ export interface AudioRecorderConfig {
   maxRecordingDuration?: number;
 }
 
-export async function requestAudioPermission(): Promise<'granted' | 'denied'> {
-  if (permissionPromise) {
-    return permissionPromise;
+export async function requestMicPermission(): Promise<boolean> {
+  if (micPermissionGranted) return true;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micPermissionGranted = true;
+    cachedStream = stream;
+    return true;
+  } catch (err) {
+    alert("麦克风权限被拒绝，请在浏览器设置里允许麦克风权限，否则无法录音。");
+    console.error("麦克风权限请求失败：", err);
+    return false;
   }
-
-  permissionPromise = new Promise(async (resolve) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      hasAudioPermission = 'granted';
-      resolve('granted');
-    } catch {
-      hasAudioPermission = 'denied';
-      resolve('denied');
-    }
-  });
-
-  return permissionPromise;
 }
 
-export function checkAudioPermission(): 'granted' | 'denied' | null {
-  return hasAudioPermission;
+export function checkMicPermission(): boolean {
+  return micPermissionGranted;
 }
 
 export class AudioRecorder {
@@ -244,6 +239,14 @@ export class AudioRecorder {
 
   async start(): Promise<void> {
     try {
+      const hasPermission = await requestMicPermission();
+      if (!hasPermission) {
+        this.state = 'error';
+        this.onStateChange?.('error');
+        this.onError?.('麦克风权限被拒绝');
+        return;
+      }
+
       this.state = 'recording';
       this.onStateChange?.('recording');
       
@@ -257,20 +260,22 @@ export class AudioRecorder {
         issues: []
       };
 
-      const constraints: MediaStreamConstraints = {
-        audio: {
-          sampleRate: this.config.sampleRate,
-          channelCount: this.config.channelCount,
-          echoCancellation: this.config.echoCancellation,
-          noiseSuppression: this.config.noiseSuppression,
-          autoGainControl: true,
-        }
-      };
+      if (!cachedStream) {
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            sampleRate: this.config.sampleRate,
+            channelCount: this.config.channelCount,
+            echoCancellation: this.config.echoCancellation,
+            noiseSuppression: this.config.noiseSuppression,
+            autoGainControl: true,
+          }
+        };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      this.stream = stream;
+        cachedStream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
+      this.stream = cachedStream;
 
-      await this.initAudioContext(stream);
+      await this.initAudioContext(cachedStream);
 
       const options: MediaRecorderOptions = {};
       const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/wav'];
@@ -281,7 +286,7 @@ export class AudioRecorder {
         }
       }
 
-      this.mediaRecorder = new MediaRecorder(stream, options);
+      this.mediaRecorder = new MediaRecorder(cachedStream, options);
       this.audioChunks = [];
 
       this.mediaRecorder.ondataavailable = (event) => {
@@ -336,10 +341,7 @@ export class AudioRecorder {
         this.stopDurationTimer();
         this.stopVolumeAnalysis();
 
-        if (this.stream) {
-          this.stream.getTracks().forEach(track => track.stop());
-          this.stream = null;
-        }
+        this.stream = null;
 
         if (this.audioContext) {
           await this.audioContext.close();

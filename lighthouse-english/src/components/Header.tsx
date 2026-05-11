@@ -24,17 +24,18 @@ export function Header({ showBack = false, title }: HeaderProps) {
           <div className="flex items-center gap-2">
             {showBack ? (
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/')}
                 className="p-2 rounded-full hover:bg-primary-600 transition-colors"
               >
                 <Home className="w-6 h-6" />
               </button>
             ) : (
-              <div className="text-xl font-bold flex items-center gap-2">
-                <span className="text-2xl">🏠</span>
-                <span className="hidden sm:inline">{title || '灯塔英语角'}</span>
-                <span className="sm:hidden">灯塔</span>
-              </div>
+              <button
+                onClick={() => navigate('/')}
+                className="p-2 rounded-full hover:bg-primary-600 transition-colors"
+              >
+                <Home className="w-6 h-6" />
+              </button>
             )}
           </div>
 

@@ -5,6 +5,7 @@ import { SpeechButton } from '@/components/SpeechButton';
 import { useUserData } from '@/hooks/useUserData';
 import { cn, shuffleArray } from '@/lib/utils';
 import { GRADE_3A, GRADE_3B } from '@/data/wordLearning';
+import type { QuestionData } from '@/types';
 
 type ReviewMode = 'home' | 'smart' | 'wrong' | 'marked' | 'all' | 'quick';
 type QuestionType = 'flashcard' | 'select' | 'listening' | 'spelling';
@@ -20,7 +21,8 @@ interface ReviewWord {
   unitName: string;
   record?: any;
   wordIndex: number;
-  // 记录每个环节的完成情况
+  originalQuestionType?: 'phonetic' | 'sentence' | 'dialogue' | 'listening' | 'matching' | 'ordering';
+  originalQuestion?: QuestionData;
   flashcardResult?: 'know' | 'fuzzy' | 'unknown';
   selectCorrect?: boolean;
   listeningCorrect?: boolean;
@@ -39,7 +41,7 @@ interface ReviewSession {
   isCorrect: boolean | null;
   spellingInput: string;
   showSpellingHint: boolean;
-  spellingHintLevel: number; // 0: 无, 1: 首字母, 2: 更多提示
+  spellingHintLevel: number;
   roundWrongWords: ReviewWord[];
 }
 
@@ -105,7 +107,6 @@ function getWordImage(word: string): string {
 
 export function ReviewPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const {
     userData,
     addPoints,
@@ -134,11 +135,10 @@ export function ReviewPage() {
   const [showMarkedWordDetail, setShowMarkedWordDetail] = useState(false);
   const [isMarkedLocal, setIsMarkedLocal] = useState<boolean | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0);
-  
-  // 每日学习目标
+  const [showGoalModal, setShowGoalModal] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(20);
   const [todayReviewed, setTodayReviewed] = useState(0);
-  
+
   useEffect(() => {
     const today = new Date().toDateString();
     const savedTodayReviewed = localStorage.getItem(`reviewed_${today}`);
@@ -151,13 +151,6 @@ export function ReviewPage() {
     }
   }, []);
 
-  useEffect(() => {
-    const mode = searchParams.get('mode');
-    if (mode === 'marked' && markedWords.length > 0) {
-      startMarkedReview();
-    }
-  }, [searchParams]);
-  
   const saveTodayReviewed = (count: number) => {
     const today = new Date().toDateString();
     localStorage.setItem(`reviewed_${today}`, count.toString());
@@ -213,16 +206,35 @@ export function ReviewPage() {
   const learnedWords = allTextbookWords.filter(w => w.record);
 
   const currentWord = session?.words[session.currentIndex];
-  
+
   const options = useMemo(() => {
-    if (!currentWord) return [];
+    const cw = session?.words[session?.currentIndex ?? -1];
+    if (!cw) return [];
     const distractors = allTextbookWords
-      .filter(w => w.meaning !== currentWord.meaning)
+      .filter(w => w.meaning !== cw.meaning)
       .map(w => w.meaning);
     return shuffleArray(distractors).slice(0, 3);
-  }, [currentWord, allTextbookWords]);
+  }, [session?.words, session?.currentIndex, allTextbookWords]);
 
-  const getQuestionTypeForIndex = (index: number, total: number): QuestionType => {
+  const getQuestionTypeForIndex = (index: number, total: number, mode: ReviewMode, word?: ReviewWord): QuestionType => {
+    if (mode === 'wrong' && word?.originalQuestionType) {
+      switch (word.originalQuestionType) {
+        case 'listening':
+          return 'listening';
+        case 'matching':
+          return 'select';
+        case 'phonetic':
+          return 'spelling';
+        case 'sentence':
+        case 'dialogue':
+          return 'select';
+        case 'ordering':
+          return 'select';
+        default:
+          return 'select';
+      }
+    }
+
     if (total <= 4) {
       const stages: QuestionType[] = ['flashcard', 'select', 'listening', 'spelling'];
       return stages[Math.min(Math.floor(index / Math.ceil(total / 4)), 3)];
@@ -238,7 +250,7 @@ export function ReviewPage() {
     setSession({
       words: shuffled,
       currentIndex: 0,
-      questionType: getQuestionTypeForIndex(0, shuffled.length),
+      questionType: getQuestionTypeForIndex(0, shuffled.length, mode, shuffled[0]),
       stageIndex: 1,
       showAnswer: false,
       selectedAnswer: null,
@@ -266,21 +278,29 @@ export function ReviewPage() {
   const startWrongReview = () => {
     const words: ReviewWord[] = wrongQuestions.map(wq => {
       const word = allTextbookWords.find(w => w.word === wq.question.word);
-      return word || {
-        word: wq.question.word || '',
-        meaning: wq.question.correctAnswer || '',
-        phonetic: '',
-        textbookId: 'grade3a',
-        unitId: 1,
-        unitName: '',
-        image: getWordImage(wq.question.word || ''),
-        wordIndex: 0,
+      const wordMeaning = word?.meaning || wq.question.correctAnswer || '';
+      return {
+        ...(word || {
+          word: wq.question.word || '',
+          meaning: wordMeaning,
+          phonetic: word?.phonetic || '',
+          textbookId: word?.textbookId || 'grade3a',
+          unitId: word?.unitId || 1,
+          unitName: word?.unitName || '',
+          image: word?.image || getWordImage(wq.question.word || ''),
+          wordIndex: word?.wordIndex || 0,
+        }),
+        originalQuestionType: wq.type,
+        wrongCount: wq.wrongCount,
+        originalQuestion: wq.question,
       };
     });
+
     if (words.length === 0) {
       alert('没有可复习的错题，请先在学习中积累错题哦～');
       return;
     }
+
     initReviewSession(words, 'wrong');
   };
 
@@ -324,8 +344,7 @@ export function ReviewPage() {
     if (!currentWord || !session) return;
 
     const isCorrect = result !== 'unknown';
-    
-    // 更新当前单词的闪卡结果
+
     setSession(prev => {
       if (!prev) return null;
       const updatedWords = [...prev.words];
@@ -333,19 +352,19 @@ export function ReviewPage() {
         ...updatedWords[prev.currentIndex],
         flashcardResult: result
       };
-      
+
       let wrongWords = prev.roundWrongWords;
       if (!isCorrect) {
         wrongWords = [...wrongWords, currentWord];
       }
-      
+
       return {
         ...prev,
         words: updatedWords,
         roundWrongWords: wrongWords
       };
     });
-    
+
     if (isCorrect) {
       setRoundCorrectCount(prev => prev + 1);
     }
@@ -360,9 +379,8 @@ export function ReviewPage() {
   const handleSelectAnswer = (answer: string) => {
     if (session?.selectedAnswer !== null || !currentWord || !session) return;
 
-    const correct = answer === currentWord.meaning;
+    const correct = answer === (currentWord.originalQuestion?.correctAnswer || currentWord.meaning);
 
-    // 更新当前单词的答题结果
     setSession(prev => {
       if (!prev) return null;
       const updatedWords = [...prev.words];
@@ -432,7 +450,6 @@ export function ReviewPage() {
 
     const correct = session.spellingInput.trim().toLowerCase() === currentWord.word.toLowerCase();
 
-    // 更新当前单词的拼写结果
     setSession(prev => {
       if (!prev) return null;
       const updatedWords = [...prev.words];
@@ -471,18 +488,18 @@ export function ReviewPage() {
 
   const goToNext = () => {
     if (!session) return;
-    
+
     const nextIndex = session.currentIndex + 1;
-    
+
     if (nextIndex >= session.words.length) {
       const wrongWords = session.roundWrongWords;
       setAllWrongWords(prev => [...prev, ...wrongWords]);
-      
+
       if (wrongWords.length > 0) {
         setSession({
           words: wrongWords,
           currentIndex: 0,
-          questionType: getQuestionTypeForIndex(0, wrongWords.length),
+          questionType: getQuestionTypeForIndex(0, wrongWords.length, reviewMode, wrongWords[0]),
           stageIndex: 1,
           showAnswer: false,
           selectedAnswer: null,
@@ -496,7 +513,6 @@ export function ReviewPage() {
         setRoundCorrectCount(0);
         setRoundTotalCount(wrongWords.length);
       } else {
-        // 增加今日复习数量
         const reviewedCount = session.words.length;
         const newTodayReviewed = todayReviewed + reviewedCount;
         setTodayReviewed(newTodayReviewed);
@@ -504,9 +520,10 @@ export function ReviewPage() {
         setGameOver(true);
       }
     } else {
-      const questionType = getQuestionTypeForIndex(nextIndex, session.words.length);
-      const stageIndex = Math.floor(nextIndex / Math.ceil(session.words.length / 4)) + 1;
-      
+      const nextWord = session.words[nextIndex];
+      const questionType = getQuestionTypeForIndex(nextIndex, session.words.length, reviewMode, nextWord);
+      const stageIndex = reviewMode === 'wrong' ? 1 : Math.floor(nextIndex / Math.ceil(session.words.length / 4)) + 1;
+
       setSession(prev => prev ? {
         ...prev,
         currentIndex: nextIndex,
@@ -547,50 +564,17 @@ export function ReviewPage() {
     const totalLearned = userData.wordLearningRecords.length;
     const masteredCount = userData.wordLearningRecords.filter(r => r.isMastered).length;
     const pendingCount = pendingReviewWords.length;
-    
+
     return { totalLearned, masteredCount, pendingCount };
   };
 
   const stats = getReviewStats();
-
-  const nextReviewInfo = useMemo(() => {
-    const now = Date.now();
-    const upcoming = userData.wordLearningRecords
-      .filter(r => !r.isMastered && r.nextReviewAt > now)
-      .sort((a, b) => a.nextReviewAt - b.nextReviewAt);
-    return upcoming.length > 0 ? upcoming[0] : null;
-  }, [userData.wordLearningRecords]);
-
-  const [countdownSeconds, setCountdownSeconds] = useState(0);
-
-  useEffect(() => {
-    if (!nextReviewInfo) {
-      setCountdownSeconds(0);
-      return;
-    }
-    const update = () => setCountdownSeconds(Math.max(0, Math.ceil((nextReviewInfo.nextReviewAt - Date.now()) / 1000)));
-    update();
-    const timer = setInterval(update, 1000);
-    return () => clearInterval(timer);
-  }, [nextReviewInfo?.nextReviewAt]);
-
-  const formatCountdown = (seconds: number): string => {
-    if (seconds <= 0) return '立即';
-    if (seconds < 60) return `${seconds}秒`;
-    const mins = Math.floor(seconds / 60);
-    if (mins < 60) return `${mins}分钟`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}小时`;
-    const days = Math.floor(hours / 24);
-    return `${days}天${hours % 24}小时`;
-  };
 
   if (!started) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
         <Header showBack title="复习" />
         <div className="max-w-4xl mx-auto px-4 mt-6">
-          {/* 学习统计卡片 */}
           <div className="bg-white rounded-2xl shadow-warm-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -617,8 +601,7 @@ export function ReviewPage() {
                 <p className="text-xs text-gray-500">待复习</p>
               </div>
             </div>
-            
-            {/* 每日学习目标 */}
+
             <div className="bg-gradient-to-r from-primary-50 to-purple-50 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-gray-700">🎯 今日复习目标</span>
@@ -639,13 +622,7 @@ export function ReviewPage() {
                   {todayReviewed >= dailyGoal ? '🎉 目标达成！' : `还需复习 ${Math.max(0, dailyGoal - todayReviewed)} 个单词`}
                 </span>
                 <button
-                  onClick={() => {
-                    const newGoal = prompt('设置每日复习目标:', dailyGoal.toString());
-                    if (newGoal && parseInt(newGoal) > 0) {
-                      setDailyGoal(parseInt(newGoal));
-                      localStorage.setItem('dailyReviewGoal', newGoal);
-                    }
-                  }}
+                  onClick={() => setShowGoalModal(true)}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium"
                 >
                   修改目标
@@ -654,7 +631,56 @@ export function ReviewPage() {
             </div>
           </div>
 
-          {/* 还没有学习记录的提醒 */}
+          {showGoalModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">设置每日复习目标</h3>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  defaultValue={dailyGoal}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-xl"
+                  ref={(el) => el?.focus()}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      const newGoal = parseInt((e.target as HTMLInputElement).value);
+                      if (newGoal > 0) {
+                        setDailyGoal(newGoal);
+                        localStorage.setItem('dailyReviewGoal', newGoal.toString());
+                        setShowGoalModal(false);
+                      }
+                    }
+                  }}
+                />
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShowGoalModal(false)}
+                    className="flex-1 py-2 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newGoalInput = (document.querySelector('input[type="number"]') as HTMLInputElement)?.value;
+                      const newGoal = parseInt(newGoalInput);
+                      if (newGoal > 0) {
+                        setDailyGoal(newGoal);
+                        localStorage.setItem('dailyReviewGoal', newGoal.toString());
+                        setShowGoalModal(false);
+                      } else {
+                        alert('请输入有效的数字！');
+                      }
+                    }}
+                    className="flex-1 py-2 bg-primary-500 text-white font-bold rounded-lg hover:bg-primary-600"
+                  >
+                    确认
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {stats.totalLearned === 0 && (
             <div className="bg-blue-50 rounded-xl p-5 mb-6 border border-blue-200">
               <div className="flex items-start gap-4">
@@ -675,10 +701,9 @@ export function ReviewPage() {
             </div>
           )}
 
-          {/* 测试功能 */}
           <div className="bg-yellow-50 rounded-xl p-4 mb-6 border border-yellow-200">
             <p className="text-yellow-700 mb-3 font-medium">🧪 测试功能</p>
-            <div className="flex gap-3">
+            <div className="flex gap-3 mb-3">
               <button
                 onClick={() => {
                   const testWords = allTextbookWords.slice(0, 5);
@@ -696,8 +721,8 @@ export function ReviewPage() {
                 disabled={learnedWords.length === 0}
                 className={cn(
                   'flex-1 py-2 font-bold rounded-lg transition-colors',
-                  learnedWords.length > 0 
-                    ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  learnedWords.length > 0
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 )}
               >
@@ -736,14 +761,15 @@ export function ReviewPage() {
                     },
                     {
                       id: `test_wrong_${Date.now()}_3`,
-                      type: 'matching' as const,
+                      type: 'dialogue' as const,
                       question: {
-                        id: 'test_word_cat',
-                        word: 'cat',
-                        correctAnswer: '猫',
-                        type: 'matching',
+                        id: 'test_dialogue_1',
+                        type: 'dialogue',
+                        speakerA: 'How are you today?',
+                        options: ['I am fine, thank you.', 'What is your name?', 'Where are you from?'],
+                        correctAnswer: 'I am fine, thank you.',
                       },
-                      wrongCount: 3,
+                      wrongCount: 1,
                       correctCount: 0,
                       lastAttempt: Date.now(),
                     },
@@ -774,7 +800,6 @@ export function ReviewPage() {
             <p className="text-gray-600">根据艾宾浩斯遗忘曲线，科学安排复习计划</p>
           </div>
 
-          {/* 复习模式选择 */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <button
               onClick={startSmartReview}
@@ -791,21 +816,10 @@ export function ReviewPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">今日复习</h3>
-                  <p className="text-sm text-white/80">
-                    {pendingReviewWords.length > 0
-                      ? '遗忘曲线安排'
-                      : nextReviewInfo
-                        ? `${formatCountdown(countdownSeconds)}后可复习`
-                        : '暂无待复习单词'}
-                  </p>
+                  <p className="text-sm text-white/80">遗忘曲线安排</p>
                 </div>
               </div>
               <div className="text-3xl font-bold">{pendingReviewWords.length}</div>
-              {pendingReviewWords.length === 0 && nextReviewInfo && (
-                <p className="text-xs text-white/60 mt-1">
-                  下一个: {nextReviewInfo.word}
-                </p>
-              )}
             </button>
 
             <button
@@ -828,7 +842,7 @@ export function ReviewPage() {
             </button>
 
             <button
-              onClick={() => navigate('/marked-words')}
+              onClick={() => setShowMarkedWordDetail(true)}
               className={cn(
                 'bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-5 text-white text-left',
                 'hover:opacity-90 transition-all shadow-warm',
@@ -869,7 +883,6 @@ export function ReviewPage() {
             </button>
           </div>
 
-          {/* 学习成就徽章 */}
           <div className="bg-white rounded-2xl p-6 shadow-warm-lg mb-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">🏆 学习成就</h3>
             <div className="flex flex-wrap justify-center gap-3">
@@ -904,7 +917,6 @@ export function ReviewPage() {
             </div>
           </div>
 
-          {/* 复习流程说明 */}
           <div className="bg-white rounded-2xl p-6 shadow-warm-lg">
             <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">📖 复习流程</h3>
             <div className="grid grid-cols-4 gap-3">
@@ -931,7 +943,6 @@ export function ReviewPage() {
             </div>
           </div>
 
-          {/* 快速复习确认弹窗 */}
           {showQuickReviewConfirm && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
@@ -958,7 +969,6 @@ export function ReviewPage() {
             </div>
           )}
 
-          {/* 重点词详情弹窗 */}
           {showMarkedWordDetail && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[85vh] flex flex-col">
@@ -980,7 +990,6 @@ export function ReviewPage() {
                   </div>
                 ) : (
                   <>
-                    {/* 重点词列表 */}
                     <div className="space-y-3 flex-1 overflow-y-auto">
                       {markedWords.map((mw, idx) => {
                         const word = allTextbookWords.find(
@@ -1030,7 +1039,6 @@ export function ReviewPage() {
             </div>
           )}
 
-          {/* 错题本详情弹窗 */}
           {showWrongWordDetail && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[85vh] flex flex-col">
@@ -1052,7 +1060,6 @@ export function ReviewPage() {
                   </div>
                 ) : (
                   <>
-                    {/* 操作按钮 */}
                     <div className="flex gap-2 mb-4">
                       <button
                         onClick={() => {
@@ -1076,7 +1083,6 @@ export function ReviewPage() {
                       </button>
                     </div>
 
-                    {/* 错题列表 */}
                     <div className="space-y-3 flex-1 overflow-y-auto">
                       {wrongQuestions.map((wq, idx) => {
                         const word = allTextbookWords.find(w => w.word === wq.question.word);
@@ -1087,8 +1093,12 @@ export function ReviewPage() {
                           >
                             <div className="text-3xl">{word?.image || getWordImage(wq.question.word || '')}</div>
                             <div className="flex-1">
-                              <div className="font-bold text-gray-800">{wq.question.word}</div>
-                              <div className="text-gray-600 text-sm">{wq.question.correctAnswer}</div>
+                              <div className="font-bold text-gray-800">
+                                {wq.question.word || '对话/句型题'}
+                              </div>
+                              <div className="text-gray-600 text-sm">
+                                {wq.question.correctAnswer || `${wq.type}类型错题`}
+                              </div>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-gray-400 text-xs">
                                   答错 {(wq.wrongCount || 0) + 1} 次
@@ -1101,6 +1111,21 @@ export function ReviewPage() {
                                 {wq.question.type === 'matching' && (
                                   <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs">
                                     选义
+                                  </span>
+                                )}
+                                {wq.question.type === 'dialogue' && (
+                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full text-xs">
+                                    对话
+                                  </span>
+                                )}
+                                {wq.question.type === 'sentence' && (
+                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs">
+                                    句型
+                                  </span>
+                                )}
+                                {wq.question.type === 'ordering' && (
+                                  <span className="px-2 py-0.5 bg-pink-100 text-pink-600 rounded-full text-xs">
+                                    排序
                                   </span>
                                 )}
                               </div>
@@ -1139,17 +1164,16 @@ export function ReviewPage() {
 
   if (gameOver) {
     const finalScore = totalScore + score;
-    const correctRate = roundTotalCount > 0 
+    const correctRate = roundTotalCount > 0
       ? Math.round((roundTotalCount - allWrongWords.length) / roundTotalCount * 100)
       : 100;
-    
-    // 统计各环节表现
+
     const get环节Stats = () => {
       const flashcardStats = { total: 0, correct: 0, know: 0, fuzzy: 0, unknown: 0 };
       const selectStats = { total: 0, correct: 0 };
       const listeningStats = { total: 0, correct: 0 };
       const spellingStats = { total: 0, correct: 0, hintsUsed: [] };
-      
+
       session?.words.forEach(word => {
         if (word.flashcardResult !== undefined) {
           flashcardStats.total++;
@@ -1178,12 +1202,12 @@ export function ReviewPage() {
           }
         }
       });
-      
+
       return { flashcardStats, selectStats, listeningStats, spellingStats };
     };
-    
+
     const 环节Stats = get环节Stats();
-    
+
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
         <Header showBack title="复习完成" />
@@ -1192,7 +1216,7 @@ export function ReviewPage() {
             <div className="text-6xl mb-4 animate-bounce">🎉</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">复习完成！</h2>
             <p className="text-gray-600 mb-6">太棒了！继续保持！</p>
-            
+
             <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-xl p-6 mb-6">
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -1210,12 +1234,10 @@ export function ReviewPage() {
               </div>
             </div>
           </div>
-          
-          {/* 各环节详细报告 */}
+
           <div className="bg-white rounded-2xl p-6 shadow-warm-lg mb-6">
             <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">📊 各环节表现</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* 闪卡 */}
               {环节Stats.flashcardStats.total > 0 && (
                 <div className="bg-purple-50 rounded-xl p-4">
                   <p className="text-sm text-purple-700 font-bold mb-2">📱 闪卡回忆</p>
@@ -1225,7 +1247,6 @@ export function ReviewPage() {
                   <p className="text-sm text-red-600">{环节Stats.flashcardStats.unknown} 不认识</p>
                 </div>
               )}
-              {/* 选义 */}
               {环节Stats.selectStats.total > 0 && (
                 <div className="bg-blue-50 rounded-xl p-4">
                   <p className="text-sm text-blue-700 font-bold mb-2">✍️ 选义练习</p>
@@ -1233,7 +1254,6 @@ export function ReviewPage() {
                   <p className="text-xs text-gray-500">正确率</p>
                 </div>
               )}
-              {/* 听力 */}
               {环节Stats.listeningStats.total > 0 && (
                 <div className="bg-green-50 rounded-xl p-4">
                   <p className="text-sm text-green-700 font-bold mb-2">🎧 听力训练</p>
@@ -1241,7 +1261,6 @@ export function ReviewPage() {
                   <p className="text-xs text-gray-500">正确率</p>
                 </div>
               )}
-              {/* 拼写 */}
               {环节Stats.spellingStats.total > 0 && (
                 <div className="bg-orange-50 rounded-xl p-4">
                   <p className="text-sm text-orange-700 font-bold mb-2">⌨️ 拼写测试</p>
@@ -1314,7 +1333,6 @@ export function ReviewPage() {
   } = session;
 
   const totalCount = session.words.length;
-  // 使用本地状态，添加 forceUpdate 到依赖
   useEffect(() => {
     setIsMarkedLocal(currentWord ? isWordMarked(currentWord.word, currentWord.textbookId, currentWord.unitId) : false);
   }, [currentWord, isWordMarked, forceUpdate]);
@@ -1323,369 +1341,5 @@ export function ReviewPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
       <Header showBack={false} title={`${roundNumber > 1 ? `第${roundNumber}轮 - ` : ''}${
-        reviewMode === 'smart' ? '今日复习' : 
-        reviewMode === 'wrong' ? '错题复习' : 
-        reviewMode === 'marked' ? '重点词复习' : 
-        reviewMode === 'quick' ? '快速复习' : '全部复习'
-      }`} />
-
-      <div className="max-w-4xl mx-auto px-4 mt-4">
-        {/* 进度条 */}
-        <div className="bg-white rounded-xl p-3 shadow-warm mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600">
-                <span className="font-bold text-purple-600">
-                  {
-                    questionType === 'flashcard' ? '📱 闪卡回忆' :
-                    questionType === 'select' ? '✍️ 选义练习' :
-                    questionType === 'listening' ? '🎧 听力训练' : '⌨️ 拼写测试'
-                  }
-                </span>
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                {currentIndex + 1}/{totalCount}
-              </span>
-              <span className="font-bold text-purple-600">+{score}</span>
-            </div>
-          </div>
-          <div className="w-full bg-purple-100 rounded-full h-2">
-            <div
-              className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all"
-              style={{ width: `${((currentIndex + 1) / totalCount) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* 主要内容 */}
-        <div className="bg-white rounded-2xl p-6 shadow-warm">
-          {questionType === 'flashcard' && currentWord && (
-            <div className="text-center relative">
-              <button
-                onClick={toggleMarkWord}
-                className={cn(
-                  'absolute top-0 right-0 p-2 rounded-full transition-all duration-200',
-                  isMarked
-                    ? 'bg-green-500 text-white shadow-lg scale-105'
-                    : 'bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-500'
-                )}
-              >
-                {isMarked ? '⭐' : '☆'}
-              </button>
-
-              <div className="text-6xl mb-4">{currentWord.image}</div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">{currentWord.word}</h2>
-              <SpeechButton text={currentWord.word} size="lg" className="mb-4" />
-              <p className="text-xs text-gray-400 mb-4">{currentWord.unitName}</p>
-              
-              {!showAnswer ? (
-                <>
-                  <p className="text-gray-500 mb-6">点击查看中文意思</p>
-                  <button
-                    onClick={() => setSession(prev => prev ? { ...prev, showAnswer: true } : null)}
-                    className="px-8 py-3 bg-purple-500 text-white font-bold rounded-full hover:bg-purple-600 transition-colors shadow-warm"
-                  >
-                    显示答案
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-2xl text-green-600 font-medium mb-2">{currentWord.meaning}</p>
-                  <p className="text-gray-400 mb-6">{currentWord.phonetic}</p>
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={() => handleFlashcardResult('know')}
-                      className="px-6 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 transition-colors shadow-warm"
-                    >
-                      ✅ 认识
-                    </button>
-                    <button
-                      onClick={() => handleFlashcardResult('fuzzy')}
-                      className="px-6 py-3 bg-yellow-500 text-white font-bold rounded-full hover:bg-yellow-600 transition-colors shadow-warm"
-                    >
-                      🤔 模糊
-                    </button>
-                    <button
-                      onClick={() => handleFlashcardResult('unknown')}
-                      className="px-6 py-3 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 transition-colors shadow-warm"
-                    >
-                      ❌ 不认识
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {questionType === 'select' && currentWord && (
-            <div className="text-center">
-              <div className="text-5xl mb-4">{currentWord.image}</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">{currentWord.word}</h2>
-              <SpeechButton text={currentWord.word} size="lg" className="mb-4" />
-              <p className="text-gray-500 mb-6">选择正确的中文意思</p>
-
-              <div className="grid grid-cols-2 gap-3">
-                {[...options, currentWord.meaning].sort().map((option, index) => {
-                  const isSelectedOption = selectedAnswer === option;
-                  const isCorrectAnswer = option === currentWord.meaning;
-
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleSelectAnswer(option)}
-                      disabled={selectedAnswer !== null}
-                      className={cn(
-                        'p-4 rounded-xl border-2 transition-all text-lg font-medium',
-                        selectedAnswer === null && 'border-purple-200 hover:border-purple-400 hover:bg-purple-50',
-                        isSelectedOption && isCorrectAnswer && 'border-green-500 bg-green-50',
-                        isSelectedOption && !isCorrectAnswer && 'border-red-500 bg-red-50',
-                        !isSelectedOption && isCorrectAnswer && selectedAnswer !== null && 'border-green-500 bg-green-50',
-                        selectedAnswer !== null && !isSelectedOption && !isCorrectAnswer && 'opacity-50'
-                      )}
-                    >
-                      <span className={cn(
-                        isSelectedOption && isCorrectAnswer && 'text-green-600',
-                        isSelectedOption && !isCorrectAnswer && 'text-red-600',
-                        !isSelectedOption && 'text-gray-700'
-                      )}>
-                        {option}
-                      </span>
-                      {isSelectedOption && (
-                        <span className="ml-2">{isCorrectAnswer ? '✓' : '✗'}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedAnswer !== null && (
-                <div className="mt-4">
-                  <button
-                    onClick={goToNext}
-                    className="px-8 py-3 bg-primary-500 text-white font-bold rounded-full hover:bg-primary-600 transition-colors shadow-warm"
-                  >
-                    下一题 →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {questionType === 'listening' && currentWord && (
-            <div className="text-center">
-              <div className="text-6xl mb-4">🎧</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">听音选义</h2>
-              <p className="text-gray-500 mb-6">仔细听发音，选择正确的中文</p>
-              
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <SpeechButton text={currentWord.word} size="xl" />
-                <button
-                  onClick={() => {
-                    const utterance = new SpeechSynthesisUtterance(currentWord.word);
-                    utterance.lang = 'en-US';
-                    window.speechSynthesis.speak(utterance);
-                  }}
-                  className="px-6 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 transition-colors shadow-warm flex items-center gap-2"
-                >
-                  🔊 再听一遍
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {[...options, currentWord.meaning].sort().map((option, index) => {
-                  const isSelectedOption = selectedAnswer === option;
-                  const isCorrectAnswer = option === currentWord.meaning;
-
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleSelectAnswer(option)}
-                      disabled={selectedAnswer !== null}
-                      className={cn(
-                        'p-4 rounded-xl border-2 transition-all text-lg font-medium',
-                        selectedAnswer === null && 'border-green-200 hover:border-green-400 hover:bg-green-50',
-                        isSelectedOption && isCorrectAnswer && 'border-green-500 bg-green-50',
-                        isSelectedOption && !isCorrectAnswer && 'border-red-500 bg-red-50',
-                        !isSelectedOption && isCorrectAnswer && selectedAnswer !== null && 'border-green-500 bg-green-50',
-                        selectedAnswer !== null && !isSelectedOption && !isCorrectAnswer && 'opacity-50'
-                      )}
-                    >
-                      <span className={cn(
-                        isSelectedOption && isCorrectAnswer && 'text-green-600',
-                        isSelectedOption && !isCorrectAnswer && 'text-red-600',
-                        !isSelectedOption && 'text-gray-700'
-                      )}>
-                        {option}
-                      </span>
-                      {isSelectedOption && (
-                        <span className="ml-2">{isCorrectAnswer ? '✓' : '✗'}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedAnswer !== null && (
-                <div className="mt-6">
-                  <div className="bg-blue-50 rounded-xl p-4 mb-4">
-                    <p className="text-blue-700 mb-2">正确单词：</p>
-                    <div className="flex items-center justify-center gap-4">
-                      <p className="text-3xl font-bold text-blue-600">{currentWord.word}</p>
-                      <SpeechButton text={currentWord.word} size="md" />
-                    </div>
-                    <p className="text-gray-500 mt-2">{currentWord.meaning}</p>
-                  </div>
-                  <button
-                    onClick={goToNext}
-                    className="px-8 py-3 bg-primary-500 text-white font-bold rounded-full hover:bg-primary-600 transition-colors shadow-warm"
-                  >
-                    下一题 →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {questionType === 'spelling' && currentWord && (
-            <div className="text-center">
-              <div className="text-6xl mb-4">{currentWord.image}</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-1">{currentWord.meaning}</h2>
-              <p className="text-gray-500 mb-2">{currentWord.phonetic}</p>
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <SpeechButton text={currentWord.word} size="lg" />
-              </div>
-              <p className="text-gray-500 mb-4">请拼写这个单词（共 {currentWord.word.length} 个字母）</p>
-
-              <div className="max-w-md mx-auto">
-                <input
-                  type="text"
-                  value={spellingInput}
-                  onChange={(e) => setSession(prev => prev ? { ...prev, spellingInput: e.target.value.toLowerCase() } : null)}
-                  onKeyPress={(e) => e.key === 'Enter' && isCorrect === null && handleSpellingSubmit()}
-                  placeholder="输入单词..."
-                  className="w-full px-4 py-3 text-xl text-center border-2 border-orange-200 rounded-xl focus:border-orange-500 focus:outline-none"
-                  disabled={isCorrect !== null}
-                  autoFocus
-                />
-
-                {/* 单词字母提示 */}
-                <div className="flex justify-center gap-2 mt-4">
-                  {currentWord.word.split('').map((char, idx) => (
-                    <div
-                      key={idx}
-                      className={cn(
-                        'w-8 h-10 rounded-lg flex items-center justify-center text-lg font-bold border-2',
-                        spellingInput[idx]?.toLowerCase() === char.toLowerCase()
-                          ? 'border-green-500 bg-green-50 text-green-600'
-                          : 'border-gray-200 bg-gray-50 text-gray-400'
-                      )}
-                    >
-                      {spellingInput[idx]?.toLowerCase() === char.toLowerCase() ? char : '_'}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 多级提示系统 */}
-                {isCorrect === null && (
-                  <div className="mt-4">
-                    {session.spellingHintLevel === 0 && (
-                  <button
-                    onClick={() => setSession(prev => prev ? { ...prev, spellingHintLevel: 1, showSpellingHint: true } : null)}
-                    className="text-yellow-600 text-sm hover:text-yellow-700 font-medium"
-                  >
-                    💡 需要提示？
-                  </button>
-                )}
-                {session.spellingHintLevel === 1 && (
-                  <div className="bg-yellow-50 rounded-xl p-3 mb-3">
-                    <p className="text-yellow-700 font-medium mb-2">💡 提示 1：首字母是 "{currentWord.word[0].toUpperCase()}"</p>
-                    <button
-                      onClick={() => setSession(prev => prev ? { ...prev, spellingHintLevel: 2 } : null)}
-                      className="text-yellow-600 text-sm hover:text-yellow-700"
-                    >
-                      还要更多提示？
-                    </button>
-                  </div>
-                )}
-                {session.spellingHintLevel === 2 && (
-                  <div className="bg-orange-50 rounded-xl p-3 mb-3">
-                    <p className="text-orange-700 font-medium mb-2">💡 提示 2：{currentWord.phonetic}</p>
-                    <p className="text-gray-600 text-sm">单词长度：{currentWord.word.length} 个字母</p>
-                    <button
-                      onClick={() => setSession(prev => prev ? { ...prev, spellingHintLevel: 3 } : null)}
-                      className="text-orange-600 text-sm hover:text-orange-700"
-                    >
-                      显示完整单词？
-                    </button>
-                  </div>
-                )}
-                {session.spellingHintLevel >= 3 && (
-                  <div className="bg-red-50 rounded-xl p-3 mb-3">
-                    <p className="text-red-700 font-medium">💡 完整单词：{currentWord.word}</p>
-                    <SpeechButton text={currentWord.word} size="sm" className="mt-2" />
-                  </div>
-                )}
-              </div>
-                )}
-
-                {isCorrect !== null && (
-                  <div className={cn(
-                    'mt-4 rounded-xl p-4',
-                    isCorrect ? 'bg-green-50' : 'bg-red-50'
-                  )}>
-                    <p className={cn(
-                      'font-bold text-lg',
-                      isCorrect ? 'text-green-600' : 'text-red-600'
-                    )}>
-                      {isCorrect ? '🎉 正确！' : '😅 再接再厉！'}
-                    </p>
-                    {isCorrect && session.spellingHintLevel > 0 && (
-                      <p className="text-gray-500 text-sm mt-1">
-                        （使用了 {session.spellingHintLevel} 个提示）
-                      </p>
-                    )}
-                    {!isCorrect && (
-                      <div className="mt-2">
-                        <p className="text-gray-600">正确答案：</p>
-                        <div className="flex items-center justify-center gap-3">
-                          <p className="text-3xl font-bold text-green-600">{currentWord.word}</p>
-                          <SpeechButton text={currentWord.word} size="md" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-4">
-                  {isCorrect === null ? (
-                    <button
-                      onClick={handleSpellingSubmit}
-                      disabled={!spellingInput.trim()}
-                      className={cn(
-                        'px-8 py-3 font-bold rounded-full transition-colors shadow-warm',
-                        spellingInput.trim()
-                          ? 'bg-orange-500 text-white hover:bg-orange-600'
-                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      )}
-                    >
-                      确认答案
-                    </button>
-                  ) : (
-                    <button
-                      onClick={goToNext}
-                      className="px-8 py-3 bg-primary-500 text-white font-bold rounded-full hover:bg-primary-600 transition-colors shadow-warm"
-                    >
-                      下一题 →
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+        reviewMode === 'smart' ? '今日复习' :
+        reviewMode === 'wrong' ? '

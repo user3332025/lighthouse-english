@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { resumeAudioContext } from '@/lib/gameSfx';
 import { unlockSpeechFromUserGesture } from '@/lib/speechUnlock';
-import { requestAudioPermission } from '@/lib/AudioRecorder';
+import { requestMicPermission } from '@/lib/AudioRecorder';
 import { HomePage } from '@/pages/HomePage';
 import { WordLearningPage } from '@/pages/WordLearningPage';
 import { SentencePage } from '@/pages/SentencePage';
@@ -37,7 +37,7 @@ function GlobalAudioUnlock() {
 
       if (!permissionRequested.current) {
         permissionRequested.current = true;
-        requestAudioPermission().catch(() => {
+        requestMicPermission().catch(() => {
           /* ignore permission errors - handled by individual components */
         });
       }

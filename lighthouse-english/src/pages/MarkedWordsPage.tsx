@@ -76,7 +76,7 @@ function getWordImage(word: string): string {
     sixteen: '1️⃣6️⃣', eighteen: '1️⃣8️⃣', nineteen: '1️⃣9️⃣',
     'piggy bank': '🐷', pay: '💳', back: '🔙',
   };
-  return wordImages[word.toLowerCase()] || '📚';
+  return wordImages[word?.toLowerCase()] || '📚';
 }
 
 const ALL_TEXTBOOKS = [GRADE_3A, GRADE_3B];
@@ -121,17 +121,19 @@ export function MarkedWordsPage() {
   const markedWords = userData.markedWords;
 
   const displayWords: DisplayWord[] = useMemo(() => {
-    const words: DisplayWord[] = markedWords.map(mw => ({
-      word: mw.word,
-      meaning: mw.meaning,
-      phonetic: mw.phonetic,
-      image: getWordImage(mw.word),
-      textbookId: mw.textbookId,
-      textbookTitle: ALL_TEXTBOOKS.find(tb => tb.id === mw.textbookId)?.title || mw.textbookId,
-      unitId: mw.unitId,
-      unitTitle: getUnitTitle(mw.textbookId, mw.unitId),
-      markedAt: mw.markedAt,
-    }));
+    const words: DisplayWord[] = markedWords
+      .filter(mw => mw.word)
+      .map(mw => ({
+        word: mw.word,
+        meaning: mw.meaning,
+        phonetic: mw.phonetic,
+        image: getWordImage(mw.word),
+        textbookId: mw.textbookId,
+        textbookTitle: ALL_TEXTBOOKS.find(tb => tb.id === mw.textbookId)?.title || mw.textbookId,
+        unitId: mw.unitId,
+        unitTitle: getUnitTitle(mw.textbookId, mw.unitId),
+        markedAt: mw.markedAt,
+      }));
 
     let filtered = words;
 

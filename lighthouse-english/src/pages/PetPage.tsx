@@ -800,7 +800,8 @@ export function PetPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <>
+              <div className="grid grid-cols-2 gap-4">
               <div className="bg-white rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700">👑 装饰配件</span>
@@ -808,15 +809,35 @@ export function PetPage() {
                     onClick={() => setShowAccessorySelector(true)}
                     className="text-xs text-purple-600 hover:text-purple-700"
                   >
-                    更换
+                    {userData.userDecorations.ownedAccessories.length > 0 ? '更多' : '去商店 +'}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {activePet?.accessory ? (
-                    <div className="bg-purple-50 rounded-lg p-2 text-center">
-                      <span className="text-2xl">{findItemById(activePet.accessory)?.emoji}</span>
-                      <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.accessory)?.name}</div>
-                    </div>
+                  {userData.userDecorations.ownedAccessories.length > 0 ? (
+                    userData.userDecorations.ownedAccessories.slice(0, 3).map(id => {
+                      const item = findItemById(id);
+                      const isActive = activePet?.accessory === id;
+                      return item ? (
+                        <button
+                          key={id}
+                          onClick={() => {
+                            if (isActive) {
+                              setPetAccessory(activePet!.id, null);
+                            } else {
+                              setPetAccessory(activePet!.id, id);
+                            }
+                          }}
+                          className={cn(
+                            'rounded-lg p-2 text-center transition-all',
+                            isActive ? 'bg-purple-100 ring-2 ring-purple-400' : 'bg-purple-50 hover:bg-purple-100'
+                          )}
+                        >
+                          <span className="text-2xl">{item.emoji}</span>
+                          <div className="text-xs text-gray-600 mt-1">{item.name}</div>
+                          {isActive && <div className="text-xs text-purple-500 font-medium mt-1">当前</div>}
+                        </button>
+                      ) : null;
+                    })
                   ) : (
                     <div className="text-gray-400 text-sm">暂无装饰</div>
                   )}
@@ -830,21 +851,42 @@ export function PetPage() {
                     onClick={() => setShowBackgroundSelector(true)}
                     className="text-xs text-purple-600 hover:text-purple-700"
                   >
-                    更换
+                    {userData.userDecorations.ownedBackgrounds.length > 0 ? '更多' : '去商店 +'}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {activePet?.background ? (
-                    <div className="bg-green-50 rounded-lg p-2 text-center">
-                      <span className="text-2xl">{findItemById(activePet.background)?.emoji}</span>
-                      <div className="text-xs text-gray-600 mt-1">{findItemById(activePet.background)?.name}</div>
-                    </div>
+                  {userData.userDecorations.ownedBackgrounds.length > 0 ? (
+                    userData.userDecorations.ownedBackgrounds.slice(0, 3).map(id => {
+                      const item = findItemById(id);
+                      const isActive = activePet?.background === id;
+                      return item ? (
+                        <button
+                          key={id}
+                          onClick={() => {
+                            if (isActive) {
+                              setPetBackground(activePet!.id, null);
+                            } else {
+                              setPetBackground(activePet!.id, id);
+                            }
+                          }}
+                          className={cn(
+                            'rounded-lg p-2 text-center transition-all',
+                            isActive ? 'bg-green-100 ring-2 ring-green-400' : 'bg-green-50 hover:bg-green-100'
+                          )}
+                        >
+                          <span className="text-2xl">{item.emoji}</span>
+                          <div className="text-xs text-gray-600 mt-1">{item.name}</div>
+                          {isActive && <div className="text-xs text-green-500 font-medium mt-1">当前</div>}
+                        </button>
+                      ) : null;
+                    })
                   ) : (
                     <div className="text-gray-400 text-sm">暂无背景</div>
                   )}
                 </div>
               </div>
             </div>
+            </>
           )}
         </div>
 
