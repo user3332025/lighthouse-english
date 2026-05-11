@@ -117,7 +117,6 @@ export function ReviewPage() {
     addMarkedWord,
     removeMarkedWord,
     isWordMarked,
-    markWordLearned,
   } = useUserData();
 
   const [reviewMode, setReviewMode] = useState<ReviewMode>('home');
@@ -749,99 +748,22 @@ export function ReviewPage() {
             </div>
           )}
 
-          <div className="bg-yellow-50 rounded-xl p-4 mb-6 border border-yellow-200">
-            <p className="text-yellow-700 mb-3 font-medium">🧪 测试功能</p>
-            <div className="flex gap-3 mb-3">
-              <button
-                onClick={() => {
-                  const testWords = allTextbookWords.slice(0, 5);
-                  testWords.forEach(w => {
-                    markWordLearned(w.word, w.textbookId, w.unitId);
-                  });
-                  alert('已添加 5 个单词到学习记录！');
-                }}
-                className="flex-1 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-colors"
-              >
-                添加 5 个测试单词
-              </button>
-              <button
-                onClick={() => setShowQuickReviewConfirm(true)}
-                disabled={learnedWords.length === 0}
-                className={cn(
-                  'flex-1 py-2 font-bold rounded-lg transition-colors',
-                  learnedWords.length > 0
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                )}
-              >
-                快速复习 (10个)
-              </button>
+          {learnedWords.length > 0 && (
+            <div className="bg-white rounded-xl p-4 mb-6 border border-blue-100 shadow-warm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-blue-700 font-bold">快速复习</p>
+                  <p className="text-sm text-gray-500">随机抽取已学单词，马上开始一轮练习。</p>
+                </div>
+                <button
+                  onClick={() => setShowQuickReviewConfirm(true)}
+                  className="px-5 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  快速复习 (10个)
+                </button>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  const testWrongQuestions = [
-                    {
-                      id: `test_wrong_${Date.now()}_1`,
-                      type: 'matching' as const,
-                      question: {
-                        id: 'test_word_apple',
-                        word: 'apple',
-                        correctAnswer: '苹果',
-                        type: 'matching',
-                      },
-                      wrongCount: 2,
-                      correctCount: 0,
-                      lastAttempt: Date.now(),
-                    },
-                    {
-                      id: `test_wrong_${Date.now()}_2`,
-                      type: 'listening' as const,
-                      question: {
-                        id: 'test_word_banana',
-                        word: 'banana',
-                        correctAnswer: '香蕉',
-                        type: 'listening',
-                      },
-                      wrongCount: 1,
-                      correctCount: 0,
-                      lastAttempt: Date.now(),
-                    },
-                    {
-                      id: `test_wrong_${Date.now()}_3`,
-                      type: 'dialogue' as const,
-                      question: {
-                        id: 'test_dialogue_1',
-                        type: 'dialogue',
-                        speakerA: 'How are you today?',
-                        options: ['I am fine, thank you.', 'What is your name?', 'Where are you from?'],
-                        correctAnswer: 'I am fine, thank you.',
-                      },
-                      wrongCount: 1,
-                      correctCount: 0,
-                      lastAttempt: Date.now(),
-                    },
-                  ];
-                  testWrongQuestions.forEach(wq => {
-                    addWrongQuestion(wq);
-                  });
-                  alert('已添加 3 个测试错题！请打开错题本查看。');
-                }}
-                className="flex-1 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors"
-              >
-                添加 3 个测试错题
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('lighthouse_english_data_v2');
-                  window.location.reload();
-                }}
-                className="flex-1 py-2 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                重置所有数据
-              </button>
-            </div>
-          </div>
+          )}
 
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 智能复习</h2>

@@ -114,29 +114,6 @@ function createPet(type: PetType, name?: string, acquisition: PetAcquisition = '
   };
 }
 
-// 创建测试用宠物（可指定任意等级，测试阶段专用）
-function createTestPet(type: PetType, level: number, name?: string): Pet {
-  const levelConfig = PET_LEVELS[Math.min(level, PET_LEVELS.length) - 1] || PET_LEVELS[0];
-  const expForLevel = (level: number) => {
-    const lvl = PET_LEVELS[Math.min(level, PET_LEVELS.length) - 1];
-    return lvl ? lvl.minExp + 10 : 10;
-  };
-
-  return {
-    id: generateId(),
-    type,
-    acquisition: 'purchased',
-    name: name || PET_NAMES[type],
-    level: levelConfig.level,
-    exp: expForLevel(levelConfig.level),
-    hunger: 80,
-    happiness: 80,
-    lastFed: Date.now(),
-    lastPlayed: Date.now(),
-    adoptedAt: Date.now(),
-  };
-}
-
 // 计算宠物等级
 function calculateLevel(exp: number): number {
   for (let i = PET_LEVELS.length - 1; i >= 0; i--) {
@@ -568,25 +545,6 @@ export function useUserData() {
     return userData.petHome.pets.some(p => p.type === type);
   }, [userData.petHome.pets]);
 
-  // 领养测试用宠物（可指定任意等级，测试阶段专用；不占免费名额）
-  const adoptTestPet = useCallback((type: PetType, level: number = 1, name?: string) => {
-    const newPet = createTestPet(type, level, name);
-    setUserData(prev => {
-      const newPets = [...prev.petHome.pets, newPet];
-      const newData: UserData = {
-        ...prev,
-        adoptedPet: type,
-        petHome: {
-          pets: newPets,
-          activePetId: newPet.id,
-        },
-      };
-      saveData(newData);
-      return newData;
-    });
-    return newPet;
-  }, [saveData]);
-
   // 切换当前宠物
   const setActivePet = useCallback((petId: string) => {
     setUserData(prev => {
@@ -808,94 +766,6 @@ export function useUserData() {
     });
   }, [saveData]);
 
-  // 测试模式：添加大量积分
-  const addTestPoints = (amount: number = 1000) => {
-    setUserData(prev => {
-      const newData = { ...prev, points: prev.points + amount };
-      saveData(newData);
-      return newData;
-    });
-  };
-
-  // 测试模式：添加所有物品到背包
-  const addAllTestItems = () => {
-    setUserData(prev => {
-      const newInventory = { ...prev.inventory };
-      // 添加所有食物和玩具
-      ['apple', 'banana', 'carrot', 'meat', 'fish', 'milk', 'cookie', 'cake', 
-       'ball', 'rope', 'bone', 'feather', 'yarn', 'bell', 'mouse', 'laser'].forEach(itemId => {
-        newInventory[itemId] = (newInventory[itemId] || 0) + 10;
-      });
-      const newData = { ...prev, inventory: newInventory };
-      saveData(newData);
-      return newData;
-    });
-  };
-
-  // 测试模式：解锁所有装饰品和背景
-  const unlockAllTestDecorations = () => {
-    setUserData(prev => {
-      const newData = {
-        ...prev,
-        userDecorations: {
-          ownedAccessories: ['crown', 'bow', 'hat', 'glasses', 'necklace', 'flower', 'star', 'heart'],
-          ownedBackgrounds: ['meadow', 'sunset', 'night', 'rainbow', 'beach', 'mountain', 'garden', 'space'],
-        }
-      };
-      saveData(newData);
-      return newData;
-    });
-  };
-
-  // 测试模式：重置所有数据
-  const resetAllData = () => {
-    setUserData(defaultUserData);
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  // 测试模式：快速标记单词已学习
-  const markTestWordLearned = () => {
-    setUserData(prev => {
-      const newRecords = [...prev.wordLearningRecords];
-      // 添加一些测试单词记录
-      const testWords = [
-        { word: 'apple', textbookId: 'grade3a', unitId: 1 },
-        { word: 'banana', textbookId: 'grade3a', unitId: 1 },
-        { word: 'cat', textbookId: 'grade3a', unitId: 2 },
-        { word: 'dog', textbookId: 'grade3a', unitId: 2 },
-      ];
-      const now = Date.now();
-      testWords.forEach(testWord => {
-        const existing = newRecords.find(r => 
-          r.word === testWord.word && r.textbookId === testWord.textbookId && r.unitId === testWord.unitId
-        );
-        if (!existing) {
-          newRecords.push({
-            ...testWord,
-            learnedAt: now,
-            nextReviewAt: now,
-            reviewCount: 0,
-            correctCount: 5,
-            wrongCount: 0,
-            currentIntervalIndex: REVIEW_INTERVALS.length - 1,
-            isMastered: true,
-          });
-        }
-      });
-      const newData = { ...prev, wordLearningRecords: newRecords };
-      saveData(newData);
-      return newData;
-    });
-  };
-
-  // 测试模式：给当前宠物添加经验升级
-  const addTestPetExp = (amount: number = 500) => {
-    const activePet = getActivePet();
-    if (activePet) {
-      updatePet(activePet.id, { exp: activePet.exp + amount });
-    }
-  };
-
   return {
     userData,
     isLoaded,
@@ -914,7 +784,6 @@ export function useUserData() {
     removeMarkedWord,
     isWordMarked,
     adoptPet,
-    adoptTestPet,
     purchasePetFromShop,
     hasAdoptedPetType,
     getRemainingFreeAdoptionSlots,
@@ -931,13 +800,6 @@ export function useUserData() {
     setPetAccessory,
     setPetBackground,
     removePet,
-    // 测试模式功能
-    addTestPoints,
-    addAllTestItems,
-    unlockAllTestDecorations,
-    resetAllData,
-    markTestWordLearned,
-    addTestPetExp,
     PET_LEVELS,
     PET_EMOJIS,
     PET_NAMES,
