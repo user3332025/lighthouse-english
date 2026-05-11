@@ -167,7 +167,7 @@ export interface OrderingQuestion extends QuestionData {
 }
 
 // 复习间隔时间（分钟）- 艾宾浩斯遗忘曲线
-export const REVIEW_INTERVALS = [0, 5, 30, 1440, 2880, 5760, 10080, 21600]; // 0分钟(立刻), 5分钟, 30分钟, 1天, 2天, 4天, 7天, 15天
+export const REVIEW_INTERVALS = [0, 0, 30, 1440, 2880, 5760, 10080, 21600]; // 0分钟(立刻), 立刻, 30分钟, 1天, 2天, 4天, 7天, 15天
 
 // 单词学习记录
 export interface WordLearningRecord {

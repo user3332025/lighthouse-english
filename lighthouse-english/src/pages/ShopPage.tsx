@@ -434,7 +434,9 @@ export function ShopPage() {
             </div>
             
             <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
-              {inventoryCount === 0 ? (
+              {Object.keys(userData.inventory).filter(k => userData.inventory[k] > 0).length === 0 &&
+               userData.userDecorations.ownedAccessories.length === 0 &&
+               userData.userDecorations.ownedBackgrounds.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-8xl mb-4">🎒</div>
                   <p className="text-gray-500 text-lg">背包空空~</p>
@@ -471,25 +473,61 @@ export function ShopPage() {
                               {item.type === 'food' ? '喂食' : '玩耍'}
                             </button>
                           )}
-                          {activePet && (item.type === 'accessory' || item.type === 'background') && (
-                            <button
-                              onClick={() => {
-                                navigate('/pet');
-                                setShowInventory(false);
-                              }}
-                              className={cn(
-                                'mt-2 w-full py-1 rounded-full text-xs font-bold text-white transition-all',
-                                item.type === 'accessory'
-                                  ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-                                  : 'bg-gradient-to-r from-green-500 to-teal-500'
-                              )}
-                            >
-                              前往装扮
-                            </button>
-                          )}
                         </div>
                       );
                     })}
+                  
+                  {userData.userDecorations.ownedAccessories.map(accessoryId => {
+                    const item = findItemById(accessoryId);
+                    if (!item) return null;
+                    return (
+                      <div
+                        key={accessoryId}
+                        className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 text-center"
+                      >
+                        <div className="text-4xl mb-2">{item.emoji}</div>
+                        <div className="font-bold text-gray-800 text-sm">{item.name}</div>
+                        <div className="text-purple-400 text-xs">装饰</div>
+                        {activePet && (
+                          <button
+                            onClick={() => {
+                              navigate('/pet');
+                              setShowInventory(false);
+                            }}
+                            className="mt-2 w-full py-1 rounded-full text-xs font-bold text-white transition-all bg-gradient-to-r from-purple-500 to-pink-500"
+                          >
+                            前往装扮
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {userData.userDecorations.ownedBackgrounds.map(bgId => {
+                    const item = findItemById(bgId);
+                    if (!item) return null;
+                    return (
+                      <div
+                        key={bgId}
+                        className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 text-center"
+                      >
+                        <div className="text-4xl mb-2">{item.emoji}</div>
+                        <div className="font-bold text-gray-800 text-sm">{item.name}</div>
+                        <div className="text-purple-400 text-xs">背景</div>
+                        {activePet && (
+                          <button
+                            onClick={() => {
+                              navigate('/pet');
+                              setShowInventory(false);
+                            }}
+                            className="mt-2 w-full py-1 rounded-full text-xs font-bold text-white transition-all bg-gradient-to-r from-green-500 to-teal-500"
+                          >
+                            前往装扮
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

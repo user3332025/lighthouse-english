@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { SpeechButton } from '@/components/SpeechButton';
 import { useUserData } from '@/hooks/useUserData';
@@ -105,6 +105,7 @@ function getWordImage(word: string): string {
 
 export function ReviewPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     userData,
     addPoints,
@@ -149,6 +150,13 @@ export function ReviewPage() {
       setDailyGoal(parseInt(savedGoal));
     }
   }, []);
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'marked' && markedWords.length > 0) {
+      startMarkedReview();
+    }
+  }, [searchParams]);
   
   const saveTodayReviewed = (count: number) => {
     const today = new Date().toDateString();
@@ -269,9 +277,11 @@ export function ReviewPage() {
         wordIndex: 0,
       };
     });
-    if (words.length > 0) {
-      initReviewSession(words, 'wrong');
+    if (words.length === 0) {
+      alert('没有可复习的错题，请先在学习中积累错题哦～');
+      return;
     }
+    initReviewSession(words, 'wrong');
   };
 
   const startMarkedReview = () => {
@@ -543,6 +553,38 @@ export function ReviewPage() {
 
   const stats = getReviewStats();
 
+  const nextReviewInfo = useMemo(() => {
+    const now = Date.now();
+    const upcoming = userData.wordLearningRecords
+      .filter(r => !r.isMastered && r.nextReviewAt > now)
+      .sort((a, b) => a.nextReviewAt - b.nextReviewAt);
+    return upcoming.length > 0 ? upcoming[0] : null;
+  }, [userData.wordLearningRecords]);
+
+  const [countdownSeconds, setCountdownSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!nextReviewInfo) {
+      setCountdownSeconds(0);
+      return;
+    }
+    const update = () => setCountdownSeconds(Math.max(0, Math.ceil((nextReviewInfo.nextReviewAt - Date.now()) / 1000)));
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [nextReviewInfo?.nextReviewAt]);
+
+  const formatCountdown = (seconds: number): string => {
+    if (seconds <= 0) return '立即';
+    if (seconds < 60) return `${seconds}秒`;
+    const mins = Math.floor(seconds / 60);
+    if (mins < 60) return `${mins}分钟`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}小时`;
+    const days = Math.floor(hours / 24);
+    return `${days}天${hours % 24}小时`;
+  };
+
   if (!started) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary-50 to-orange-100 pb-8">
@@ -612,6 +654,27 @@ export function ReviewPage() {
             </div>
           </div>
 
+          {/* 还没有学习记录的提醒 */}
+          {stats.totalLearned === 0 && (
+            <div className="bg-blue-50 rounded-xl p-5 mb-6 border border-blue-200">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">📖</div>
+                <div className="flex-1">
+                  <p className="text-blue-700 font-bold text-lg mb-1">还没有学习记录</p>
+                  <p className="text-blue-600 text-sm mb-3">
+                    先去「单词学习」页面学习单词，标记为"已学"后，就可以在这里进行智能复习啦！
+                  </p>
+                  <button
+                    onClick={() => navigate('/word-learning')}
+                    className="px-5 py-2 bg-blue-500 text-white font-bold rounded-full hover:bg-blue-600 transition-colors text-sm"
+                  >
+                    去学习单词 →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 测试功能 */}
           <div className="bg-yellow-50 rounded-xl p-4 mb-6 border border-yellow-200">
             <p className="text-yellow-700 mb-3 font-medium">🧪 测试功能</p>
@@ -641,6 +704,69 @@ export function ReviewPage() {
                 快速复习 (10个)
               </button>
             </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  const testWrongQuestions = [
+                    {
+                      id: `test_wrong_${Date.now()}_1`,
+                      type: 'matching' as const,
+                      question: {
+                        id: 'test_word_apple',
+                        word: 'apple',
+                        correctAnswer: '苹果',
+                        type: 'matching',
+                      },
+                      wrongCount: 2,
+                      correctCount: 0,
+                      lastAttempt: Date.now(),
+                    },
+                    {
+                      id: `test_wrong_${Date.now()}_2`,
+                      type: 'listening' as const,
+                      question: {
+                        id: 'test_word_banana',
+                        word: 'banana',
+                        correctAnswer: '香蕉',
+                        type: 'listening',
+                      },
+                      wrongCount: 1,
+                      correctCount: 0,
+                      lastAttempt: Date.now(),
+                    },
+                    {
+                      id: `test_wrong_${Date.now()}_3`,
+                      type: 'matching' as const,
+                      question: {
+                        id: 'test_word_cat',
+                        word: 'cat',
+                        correctAnswer: '猫',
+                        type: 'matching',
+                      },
+                      wrongCount: 3,
+                      correctCount: 0,
+                      lastAttempt: Date.now(),
+                    },
+                  ];
+                  testWrongQuestions.forEach(wq => {
+                    addWrongQuestion(wq);
+                  });
+                  alert('已添加 3 个测试错题！请打开错题本查看。');
+                }}
+                className="flex-1 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors"
+              >
+                添加 3 个测试错题
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('lighthouse_english_data_v2');
+                  window.location.reload();
+                }}
+                className="flex-1 py-2 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                重置所有数据
+              </button>
+            </div>
           </div>
 
           <div className="text-center mb-6">
@@ -665,10 +791,21 @@ export function ReviewPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">今日复习</h3>
-                  <p className="text-sm text-white/80">遗忘曲线安排</p>
+                  <p className="text-sm text-white/80">
+                    {pendingReviewWords.length > 0
+                      ? '遗忘曲线安排'
+                      : nextReviewInfo
+                        ? `${formatCountdown(countdownSeconds)}后可复习`
+                        : '暂无待复习单词'}
+                  </p>
                 </div>
               </div>
               <div className="text-3xl font-bold">{pendingReviewWords.length}</div>
+              {pendingReviewWords.length === 0 && nextReviewInfo && (
+                <p className="text-xs text-white/60 mt-1">
+                  下一个: {nextReviewInfo.word}
+                </p>
+              )}
             </button>
 
             <button
@@ -691,7 +828,7 @@ export function ReviewPage() {
             </button>
 
             <button
-              onClick={() => setShowMarkedWordDetail(true)}
+              onClick={() => navigate('/marked-words')}
               className={cn(
                 'bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-5 text-white text-left',
                 'hover:opacity-90 transition-all shadow-warm',
@@ -1419,7 +1556,7 @@ export function ReviewPage() {
               <div className="flex items-center justify-center gap-4 mb-6">
                 <SpeechButton text={currentWord.word} size="lg" />
               </div>
-              <p className="text-gray-500 mb-4">请拼写这个单词（共 {currentWord.word.length} 个字母</p>
+              <p className="text-gray-500 mb-4">请拼写这个单词（共 {currentWord.word.length} 个字母）</p>
 
               <div className="max-w-md mx-auto">
                 <input

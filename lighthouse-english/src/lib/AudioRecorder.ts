@@ -1,5 +1,8 @@
 export type RecordingState = 'idle' | 'recording' | 'paused' | 'stopped' | 'error';
 
+let hasAudioPermission: 'granted' | 'denied' | null = null;
+let permissionPromise: Promise<'granted' | 'denied'> | null = null;
+
 export interface Recording {
   id: string;
   blob: Blob;
@@ -26,6 +29,30 @@ export interface AudioRecorderConfig {
   autoStopSilenceDuration?: number;
   minRecordingDuration?: number;
   maxRecordingDuration?: number;
+}
+
+export async function requestAudioPermission(): Promise<'granted' | 'denied'> {
+  if (permissionPromise) {
+    return permissionPromise;
+  }
+
+  permissionPromise = new Promise(async (resolve) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      hasAudioPermission = 'granted';
+      resolve('granted');
+    } catch {
+      hasAudioPermission = 'denied';
+      resolve('denied');
+    }
+  });
+
+  return permissionPromise;
+}
+
+export function checkAudioPermission(): 'granted' | 'denied' | null {
+  return hasAudioPermission;
 }
 
 export class AudioRecorder {

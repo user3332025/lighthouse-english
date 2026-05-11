@@ -62,6 +62,7 @@ export function PetPage() {
     addPoints,
     spendPoints,
     getItemCount,
+    ownsItem,
     useItem,
     setPetAccessory,
     setPetBackground,
@@ -767,14 +768,20 @@ export function PetPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-purple-100 to-pink-50 rounded-2xl p-4 shadow-warm mb-6">
+        <div 
+          onClick={() => navigate('/shop')}
+          className="bg-gradient-to-r from-purple-100 to-pink-50 rounded-2xl p-4 shadow-warm mb-6 cursor-pointer hover:shadow-lg transition-shadow"
+        >
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-500" />
               宠物装扮
             </h3>
             <button
-              onClick={() => navigate('/shop')}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/shop');
+              }}
               className="text-sm text-purple-600 hover:text-purple-700 font-medium"
             >
               去商店 +
@@ -873,7 +880,7 @@ export function PetPage() {
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {PET_ITEMS.accessory.map((item: Item) => {
-                    const owned = getItemCount(item.id) > 0;
+                    const owned = ownsItem(item.id);
                     const isActive = activePet?.accessory === item.id;
                     
                     return (
@@ -938,7 +945,7 @@ export function PetPage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {PET_ITEMS.background.map((item: Item) => {
-                    const owned = getItemCount(item.id) > 0;
+                    const owned = ownsItem(item.id);
                     const isActive = activePet?.background === item.id;
                     
                     return (

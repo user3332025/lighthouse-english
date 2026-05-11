@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Pause, Play, StopCircle, ArrowRight, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { cn, calculateSimilarity } from '@/lib/utils';
 import { unlockAudioFromButtonTap } from '@/lib/gameSfx';
+import { requestAudioPermission } from '@/lib/AudioRecorder';
 
 export type EncouragementTier = 'excellent' | 'well' | 'good' | 'retry';
 

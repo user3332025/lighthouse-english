@@ -254,13 +254,38 @@ export function CSSPetIcon({
 
   return (
     <div className={`relative ${className} ${moodAnimations[mood]}`} style={{ width: currentSize.width, height: currentSize.height }}>
-      {/* 背景光晕 */}
-      <div 
-        className="absolute inset-0 rounded-full opacity-50"
-        style={{ 
-          background: `radial-gradient(circle, ${style.primaryColor}40 0%, transparent 70%)`,
-        }}
-      />
+      {/* 多层光晕背景 */}
+      <div className="absolute inset-0 rounded-full">
+        {/* 外层柔和光晕 */}
+        <div
+          className="absolute inset-[-20%] rounded-full opacity-40 animate-pulse"
+          style={{
+            background: `radial-gradient(circle, ${style.primaryColor}20 0%, transparent 60%)`,
+            animationDuration: '3s',
+          }}
+        />
+        {/* 中层主光晕 */}
+        <div
+          className="absolute inset-[-8%] rounded-full opacity-50"
+          style={{
+            background: `radial-gradient(circle, ${style.primaryColor}35 0%, ${style.secondaryColor}15 40%, transparent 70%)`,
+          }}
+        />
+        {/* 内层高亮光斑 */}
+        <div
+          className="absolute inset-[10%] rounded-full opacity-60"
+          style={{
+            background: `radial-gradient(circle at 40% 35%, ${style.accentColor}50 0%, ${style.primaryColor}20 50%, transparent 70%)`,
+          }}
+        />
+        {/* 底部环境反射 */}
+        <div
+          className="absolute inset-0 rounded-full opacity-30"
+          style={{
+            background: `radial-gradient(ellipse 80% 40% at 50% 85%, ${style.secondaryColor}25 0%, transparent 70%)`,
+          }}
+        />
+      </div>
 
       {/* 主体CSS绘制 */}
       <svg 

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { resumeAudioContext } from '@/lib/gameSfx';
 import { unlockSpeechFromUserGesture } from '@/lib/speechUnlock';
+import { requestAudioPermission } from '@/lib/AudioRecorder';
 import { HomePage } from '@/pages/HomePage';
 import { WordLearningPage } from '@/pages/WordLearningPage';
 import { SentencePage } from '@/pages/SentencePage';
@@ -14,9 +15,12 @@ import { OrderingPage } from '@/pages/OrderingPage';
 import { PetPage } from '@/pages/PetPage';
 import { ShopPage } from '@/pages/ShopPage';
 import { KidsPronunciationPractice } from '@/pages/KidsPronunciationPractice';
+import { MarkedWordsPage } from '@/pages/MarkedWordsPage';
 
 /** 首次触摸/按键后解锁 AudioContext，并让 speechSynthesis 脱离挂起态（部分浏览器默认 suspended） */
 function GlobalAudioUnlock() {
+  const permissionRequested = useRef(false);
+
   useEffect(() => {
     const unlock = () => {
       unlockSpeechFromUserGesture();
@@ -29,6 +33,13 @@ function GlobalAudioUnlock() {
         }
       } catch {
         /* ignore */
+      }
+
+      if (!permissionRequested.current) {
+        permissionRequested.current = true;
+        requestAudioPermission().catch(() => {
+          /* ignore permission errors - handled by individual components */
+        });
       }
     };
     window.addEventListener('pointerdown', unlock, { passive: true });
@@ -60,6 +71,7 @@ function App() {
         <Route path="/pet" element={<PetPage />} />
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/kids-pronunciation" element={<KidsPronunciationPractice />} />
+        <Route path="/marked-words" element={<MarkedWordsPage />} />
       </Routes>
     </HashRouter>
   );

@@ -189,6 +189,27 @@ export function useUserData() {
             };
           });
         }
+
+        // 迁移 wrongQuestions：清理使用 questionId 的旧格式，并去重
+        if (migratedData.wrongQuestions && migratedData.wrongQuestions.length > 0) {
+          const seen = new Set<string>();
+          migratedData.wrongQuestions = migratedData.wrongQuestions
+            .map((wq: any) => {
+              if (!wq.id && wq.questionId) {
+                wq.id = wq.questionId;
+              }
+              if (wq.question && wq.question.id && !wq.id) {
+                wq.id = wq.question.id;
+              }
+              return wq;
+            })
+            .filter((wq: any) => {
+              if (!wq.id) return false;
+              if (seen.has(wq.id)) return false;
+              seen.add(wq.id);
+              return true;
+            });
+        }
         
         setUserData(migratedData);
       } catch (e) {
@@ -248,12 +269,21 @@ export function useUserData() {
   const addWrongQuestion = useCallback((question: WrongQuestion) => {
     setUserData(prev => {
       const existing = prev.wrongQuestions.find(
-        q => q.questionId === question.questionId
+        q => q.id === question.id
       );
-      if (existing) return prev;
+      if (existing) {
+        const updated = prev.wrongQuestions.map(q =>
+          q.id === question.id
+            ? { ...q, wrongCount: q.wrongCount + 1, lastAttempt: Date.now() }
+            : q
+        );
+        const newData = { ...prev, wrongQuestions: updated };
+        saveData(newData);
+        return newData;
+      }
       const newData = {
         ...prev,
-        wrongQuestions: [...prev.wrongQuestions, question],
+        wrongQuestions: [...prev.wrongQuestions, { ...question, wrongCount: 1, lastAttempt: Date.now() }],
       };
       saveData(newData);
       return newData;
@@ -265,7 +295,7 @@ export function useUserData() {
       const newData = {
         ...prev,
         wrongQuestions: prev.wrongQuestions.filter(
-          q => q.questionId !== questionId
+          q => q.id !== questionId
         ),
       };
       saveData(newData);
