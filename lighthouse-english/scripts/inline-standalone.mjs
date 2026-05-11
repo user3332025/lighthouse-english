@@ -1,37 +1,160 @@
-/**
- * 将 Vite 构建产物打成单个 HTML，便于 file:// 双击打开发试用。
- * JS 使用 data:application/javascript;base64 外链，避免内联时破坏 bundle 中的 </script> 片段。
- * 用法：npm run build（默认会替换 dist/index.html）；仅需拆分产物时用 npm run build:split
- */
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dist = path.join(__dirname, '../dist');
-const outName = '灯塔英语角-单文件试用.html';
+const root = path.join(__dirname, '..');
+const dist = path.join(root, 'dist');
+const assetsDir = path.join(dist, 'assets');
+const optimizedDir = path.join(dist, 'standalone-optimized-assets');
+const resizeScript = path.join(__dirname, 'resize-standalone-image.ps1');
+const standaloneName = 'lighthouse-full.html';
+const trialStandaloneName = '灯塔英语角-单文件试用.html';
+
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg']);
+const RESIZABLE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
+const MIME_BY_EXT = {
+  '.gif': 'image/gif',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+};
 
 let html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
 
 const jsMatch = html.match(/src="\.\/assets\/([^"]+\.js)"/);
 const cssMatch = html.match(/href="\.\/assets\/([^"]+\.css)"/);
 if (!jsMatch || !cssMatch) {
-  console.error('未在 dist/index.html 中找到 ./assets/*.js 或 *.css，请先执行 vite build');
+  console.error('Could not find ./assets/*.js and ./assets/*.css in dist/index.html. Run vite build first.');
   process.exit(1);
 }
 
-const js = fs.readFileSync(path.join(dist, 'assets', jsMatch[1]), 'utf8');
-const css = fs.readFileSync(path.join(dist, 'assets', cssMatch[1]), 'utf8');
+let js = fs.readFileSync(path.join(assetsDir, jsMatch[1]), 'utf8');
+let css = fs.readFileSync(path.join(assetsDir, cssMatch[1]), 'utf8');
+
+fs.mkdirSync(optimizedDir, { recursive: true });
+
+const dataUrlCache = new Map();
+let compressedCount = 0;
+let originalImageBytes = 0;
+let packedImageBytes = 0;
+
+function getMimeType(filePath) {
+  return MIME_BY_EXT[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+}
+
+function resolveAssetPath(assetName) {
+  const cleanName = decodeURIComponent(assetName.split(/[?#]/)[0]);
+  const candidate = path.join(assetsDir, path.basename(cleanName));
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+function compressImageForStandalone(sourcePath) {
+  const ext = path.extname(sourcePath).toLowerCase();
+  if (!RESIZABLE_EXTENSIONS.has(ext) || !fs.existsSync(resizeScript)) {
+    return sourcePath;
+  }
+
+  const optimizedPath = path.join(
+    optimizedDir,
+    `${path.basename(sourcePath, ext)}.standalone${ext === '.jpeg' ? '.jpg' : ext}`
+  );
+
+  if (!fs.existsSync(optimizedPath)) {
+    try {
+      execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          resizeScript,
+          sourcePath,
+          optimizedPath,
+          '420',
+          '82',
+        ],
+        { stdio: 'pipe' }
+      );
+    } catch {
+      return sourcePath;
+    }
+  }
+
+  if (!fs.existsSync(optimizedPath)) {
+    return sourcePath;
+  }
+
+  const originalSize = fs.statSync(sourcePath).size;
+  const optimizedSize = fs.statSync(optimizedPath).size;
+  if (optimizedSize > 0 && optimizedSize < originalSize) {
+    compressedCount += 1;
+    return optimizedPath;
+  }
+  return sourcePath;
+}
+
+function getAssetDataUrl(assetName) {
+  const sourcePath = resolveAssetPath(assetName);
+  if (!sourcePath) {
+    return null;
+  }
+
+  const ext = path.extname(sourcePath).toLowerCase();
+  if (!IMAGE_EXTENSIONS.has(ext)) {
+    return null;
+  }
+
+  if (dataUrlCache.has(sourcePath)) {
+    return dataUrlCache.get(sourcePath);
+  }
+
+  const packedPath = compressImageForStandalone(sourcePath);
+  const fileBytes = fs.readFileSync(packedPath);
+  const dataUrl =
+    ext === '.svg'
+      ? `data:${getMimeType(sourcePath)},${encodeURIComponent(fileBytes.toString('utf8'))}`
+      : `data:${getMimeType(packedPath)};base64,${fileBytes.toString('base64')}`;
+
+  originalImageBytes += fs.statSync(sourcePath).size;
+  packedImageBytes += fileBytes.length;
+  dataUrlCache.set(sourcePath, dataUrl);
+  return dataUrl;
+}
+
+function inlineJsImageAssets(source) {
+  return source.replace(
+    /(["'`])([^"'`\\/]+?\.(?:png|jpe?g|webp|gif|svg))(?:\?[^"'`]*)?\1/gi,
+    (match, quote, assetName) => {
+      const dataUrl = getAssetDataUrl(assetName);
+      return dataUrl ? `${quote}${dataUrl}${quote}` : match;
+    }
+  );
+}
+
+function inlineCssImageAssets(source) {
+  return source.replace(
+    /url\((["']?)(?:\.\/)?assets\/([^)"']+?\.(?:png|jpe?g|webp|gif|svg))(?:\?[^)"']*)?\1\)/gi,
+    (match, quote, assetName) => {
+      const dataUrl = getAssetDataUrl(assetName);
+      return dataUrl ? `url(${quote}${dataUrl}${quote})` : match;
+    }
+  );
+}
+
+js = inlineJsImageAssets(js);
+css = inlineCssImageAssets(css);
 
 const jsB64 = Buffer.from(js, 'utf8').toString('base64');
-// 用 Blob URL 加载 ES 模块，避免部分浏览器对 data: 模块下 Web Audio / speechSynthesis 异常
-const b64Literal = JSON.stringify(jsB64);
-const moduleLoader = `<script>(function(){var b64=${b64Literal};var bin=atob(b64);var u8=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);var blob=new Blob([u8],{type:"text/javascript;charset=utf-8"});var url=URL.createObjectURL(blob);var s=document.createElement("script");s.type="module";s.src=url;s.onload=function(){URL.revokeObjectURL(url);};document.head.appendChild(s);})();<\/script>`;
+const moduleLoader = `<script>(function(){var b64=${JSON.stringify(
+  jsB64
+)};var bin=atob(b64);var u8=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);var blob=new Blob([u8],{type:"text/javascript;charset=utf-8"});var url=URL.createObjectURL(blob);var s=document.createElement("script");s.type="module";s.src=url;s.onload=function(){URL.revokeObjectURL(url);};document.head.appendChild(s);})();<\/script>`;
 
-html = html.replace(
-  /<script[^>]*src="\.\/assets\/[^"]+\.js"[^>]*><\/script>/i,
-  moduleLoader
-);
+html = html.replace(/<script[^>]*src="\.\/assets\/[^"]+\.js"[^>]*><\/script>/i, moduleLoader);
 html = html.replace(
   /<link[^>]*rel="stylesheet"[^>]*href="\.\/assets\/[^"]+\.css"[^>]*>/i,
   `<style>\n${css}\n</style>`
@@ -40,19 +163,12 @@ html = html.replace(
 const svgPath = path.join(dist, 'lighthouse.svg');
 if (fs.existsSync(svgPath)) {
   const svg = fs.readFileSync(svgPath, 'utf8');
-  const href = 'data:image/svg+xml,' + encodeURIComponent(svg);
   html = html.replace(
     /<link rel="icon"[^>]*>/i,
-    `<link rel="icon" type="image/svg+xml" href="${href}" />`
+    `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(svg)}" />`
   );
 }
 
-const asciiName = 'lighthouse-full.html';
-const batName = '一键启用完整功能.bat';
-/** 英文名：避免中文文件名、部分杀毒或关联异常导致「打不开」 */
-const batNameEn = 'start-full.bat';
-
-/** @param {string} entryHtml 相对当前服务目录的入口文件名 */
 function makeBatContent(entryHtml) {
   return `@echo off
 chcp 65001 >nul 2>nul
@@ -61,27 +177,16 @@ set PORT=8765
 set "ENTRY=${entryHtml}"
 
 if not exist "%ENTRY%" (
-  echo.
-  echo [错误] 当前文件夹里没有网页文件：%ENTRY%
-  echo 请把本脚本与 lighthouse-full.html 放在同一文件夹（dist 文件夹里则用 index.html）。
-  echo.
+  echo Could not find %ENTRY%.
   pause
   exit /b 1
 )
-
-echo.
-echo 灯塔英语角 - 启动本地服务（跟读录音需用下方网址打开，勿直接用双击 HTML）
-echo.
 
 where py >nul 2>nul && goto USE_PY
 where python >nul 2>nul && goto USE_PYTHON
 where node >nul 2>nul && goto USE_NODE
 
-echo [错误] 电脑里没有检测到 Python（命令 py / python）也没有 Node.js（命令 node）。
-echo 请先安装其中一个后再双击本脚本，例如：
-echo   Python: https://www.python.org/downloads/
-echo   Node.js: https://nodejs.org/
-echo.
+echo Please install Python or Node.js, then run this file again.
 pause
 exit /b 1
 
@@ -94,45 +199,32 @@ start "lighthouse-http" cmd /k "title lighthouse-http ^& python -m http.server %
 goto OPEN
 
 :USE_NODE
-echo 使用 Node 启动（首次可能下载较慢，请稍等）…
 start "lighthouse-http" cmd /k "title lighthouse-http ^& npx --yes serve@14 . -l %PORT%"
 
 :OPEN
 timeout /t 4 /nobreak >nul
 start "" "http://127.0.0.1:%PORT%/%ENTRY%#/"
-echo.
-echo 若浏览器没打开，请手动把下面整行复制到浏览器地址栏：
-echo http://127.0.0.1:%PORT%/%ENTRY%#/
-echo.
-echo 请勿关闭标题为 lighthouse-http 的黑色窗口——关掉后网页会打不开。
+echo Opened http://127.0.0.1:%PORT%/%ENTRY%#/
 pause
 `;
 }
 
-function writeAll(htmlStr) {
-  const root = path.join(__dirname, '..');
-  /** dist/index.html：替换 vite 默认入口，便于直接分发 dist 或 file:// 试用 */
-  fs.writeFileSync(path.join(dist, 'index.html'), htmlStr, 'utf8');
-  /** 中文名与纯英文副本（项目根目录的开发模板 index.html 不能覆盖） */
-  for (const p of [path.join(dist, outName), path.join(root, outName), path.join(root, asciiName)]) {
-    fs.writeFileSync(p, htmlStr, 'utf8');
-  }
-  const batDist = makeBatContent('index.html');
-  const batRoot = makeBatContent(asciiName);
-  fs.writeFileSync(path.join(dist, batName), batDist, 'utf8');
-  fs.writeFileSync(path.join(dist, batNameEn), batDist, 'utf8');
-  fs.writeFileSync(path.join(root, batName), batRoot, 'utf8');
-  fs.writeFileSync(path.join(root, batNameEn), batRoot, 'utf8');
+function writeAll(htmlString) {
+  fs.writeFileSync(path.join(dist, 'index.html'), htmlString, 'utf8');
+  fs.writeFileSync(path.join(dist, standaloneName), htmlString, 'utf8');
+  fs.writeFileSync(path.join(dist, trialStandaloneName), htmlString, 'utf8');
+  fs.writeFileSync(path.join(root, standaloneName), htmlString, 'utf8');
+  fs.writeFileSync(path.join(root, trialStandaloneName), htmlString, 'utf8');
+  fs.writeFileSync(path.join(dist, 'start-full.bat'), makeBatContent('index.html'), 'utf8');
+  fs.writeFileSync(path.join(root, 'start-full.bat'), makeBatContent(standaloneName), 'utf8');
 }
 
 writeAll(html);
 
-const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(0);
-console.log(
-  `已生成可直接打开的单文件 HTML（约 ${kb} KB），并已替换 dist/index.html：\n` +
-    `  - ${path.join(dist, 'index.html')}（分发 dist 文件夹时用此入口）\n` +
-    `  - ${path.join(dist, outName)}\n` +
-    `  - ${path.join(__dirname, '..', asciiName)}（项目根目录，供 bat 打开；勿覆盖源码 index.html）\n` +
-    `  - ${path.join(dist, batName)} / ${batNameEn}（在 dist 内会打开 index.html）\n` +
-    `若中文名的 bat 双击无反应，请试 ${batNameEn}；需已安装 Python 或 Node.js。`
-);
+const htmlKb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(0);
+const originalKb = (originalImageBytes / 1024).toFixed(0);
+const packedKb = (packedImageBytes / 1024).toFixed(0);
+console.log(`Standalone HTML written: ${htmlKb} KB`);
+console.log(`Images inlined: ${dataUrlCache.size}, compressed: ${compressedCount}, ${originalKb} KB -> ${packedKb} KB`);
+console.log(`Output: ${path.join(root, standaloneName)}`);
+console.log(`Trial output: ${path.join(root, trialStandaloneName)}`);
